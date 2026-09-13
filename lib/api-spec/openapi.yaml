@@ -10,6 +10,12 @@ servers:
 tags:
   - name: health
     description: Health operations
+  - name: portfolios
+    description: Portfolio creation and publishing
+  - name: templates
+    description: Portfolio template marketplace
+  - name: resume
+    description: Resume parsing operations
 paths:
   /healthz:
     get:
@@ -24,7 +30,156 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+  /templates:
+    get:
+      operationId: listTemplates
+      tags: [templates]
+      summary: List portfolio templates
+      responses:
+        "200":
+          description: Available templates
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PortfolioTemplate"
+  /portfolios:
+    get:
+      operationId: getCurrentPortfolio
+      tags: [portfolios]
+      summary: Get the current portfolio
+      responses:
+        "200":
+          description: Current portfolio
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Portfolio"
+    post:
+      operationId: createPortfolio
+      tags: [portfolios]
+      summary: Create a portfolio draft
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PortfolioInput"
+      responses:
+        "201":
+          description: Created portfolio
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Portfolio"
+  /portfolios/{id}:
+    patch:
+      operationId: updatePortfolio
+      tags: [portfolios]
+      summary: Update portfolio content
+      parameters:
+        - $ref: "#/components/parameters/PortfolioId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PortfolioUpdate"
+      responses:
+        "200":
+          description: Updated portfolio
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Portfolio"
+    get:
+      operationId: getPortfolio
+      tags: [portfolios]
+      summary: Get a portfolio draft
+      parameters:
+        - $ref: "#/components/parameters/PortfolioId"
+      responses:
+        "200":
+          description: Portfolio
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Portfolio"
+  /portfolios/{id}/publish:
+    post:
+      operationId: publishPortfolio
+      tags: [portfolios]
+      summary: Publish a portfolio
+      parameters:
+        - $ref: "#/components/parameters/PortfolioId"
+      responses:
+        "200":
+          description: Published portfolio
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Portfolio"
+  /portfolios/{id}/unpublish:
+    post:
+      operationId: unpublishPortfolio
+      tags: [portfolios]
+      summary: Unpublish a portfolio
+      parameters:
+        - $ref: "#/components/parameters/PortfolioId"
+      responses:
+        "200":
+          description: Unpublished portfolio
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Portfolio"
+  /public/portfolios/{slug}:
+    get:
+      operationId: getPublicPortfolio
+      tags: [portfolios]
+      summary: View a published portfolio
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Public portfolio
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Portfolio"
+        "404":
+          description: Portfolio not found
+  /resume/parse:
+    post:
+      operationId: parseResume
+      tags: [resume]
+      summary: Extract portfolio data from a resume
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ResumeParseInput"
+      responses:
+        "200":
+          description: Extracted information awaiting review
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResumeExtraction"
 components:
+  parameters:
+    PortfolioId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
   schemas:
     HealthStatus:
       type: object
@@ -33,4 +188,136 @@ components:
           type: string
       required:
         - status
+    PortfolioTemplate:
+      type: object
+      required: [id, name, category, description, premium, accent, layout]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        category: { type: string }
+        description: { type: string }
+        premium: { type: boolean }
+        accent: { type: string }
+        layout: { type: string }
+        recommendedFor:
+          type: array
+          items: { type: string }
+    PersonalInfo:
+      type: object
+      required: [name, headline, email, phone, location, summary]
+      properties:
+        name: { type: string }
+        headline: { type: string }
+        email: { type: string }
+        phone: { type: string }
+        location: { type: string }
+        summary: { type: string }
+        avatar: { type: ["string", "null"] }
+    Experience:
+      type: object
+      required: [id, role, company, period, description]
+      properties:
+        id: { type: string }
+        role: { type: string }
+        company: { type: string }
+        period: { type: string }
+        description: { type: string }
+    Education:
+      type: object
+      required: [id, school, degree, period]
+      properties:
+        id: { type: string }
+        school: { type: string }
+        degree: { type: string }
+        period: { type: string }
+    Project:
+      type: object
+      required: [id, name, description, technologies, githubUrl, liveUrl]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        description: { type: string }
+        technologies:
+          type: array
+          items: { type: string }
+        githubUrl: { type: string }
+        liveUrl: { type: string }
+        image: { type: ["string", "null"] }
+    SocialLinks:
+      type: object
+      required: [github, linkedin, twitter, website]
+      properties:
+        github: { type: string }
+        linkedin: { type: string }
+        twitter: { type: string }
+        website: { type: string }
+    PortfolioContent:
+      type: object
+      required: [personalInfo, experience, education, skills, projects, socialLinks]
+      properties:
+        personalInfo:
+          $ref: "#/components/schemas/PersonalInfo"
+        experience:
+          type: array
+          items: { $ref: "#/components/schemas/Experience" }
+        education:
+          type: array
+          items: { $ref: "#/components/schemas/Education" }
+        skills:
+          type: array
+          items: { type: string }
+        projects:
+          type: array
+          items: { $ref: "#/components/schemas/Project" }
+        socialLinks:
+          $ref: "#/components/schemas/SocialLinks"
+    Portfolio:
+      type: object
+      required: [id, slug, profession, purpose, templateId, status, content, views, updatedAt]
+      properties:
+        id: { type: string }
+        slug: { type: string }
+        profession: { type: string }
+        purpose: { type: string }
+        templateId: { type: string }
+        status: { type: string, enum: [draft, published] }
+        content:
+          $ref: "#/components/schemas/PortfolioContent"
+        views: { type: integer }
+        updatedAt: { type: string }
+        publishedAt: { type: ["string", "null"] }
+    PortfolioInput:
+      type: object
+      required: [profession, purpose, templateId, content]
+      properties:
+        profession: { type: string }
+        purpose: { type: string }
+        templateId: { type: string }
+        content:
+          $ref: "#/components/schemas/PortfolioContent"
+    PortfolioUpdate:
+      type: object
+      properties:
+        profession: { type: string }
+        purpose: { type: string }
+        templateId: { type: string }
+        content:
+          $ref: "#/components/schemas/PortfolioContent"
+    ResumeParseInput:
+      type: object
+      required: [fileName, mimeType, fileSize]
+      properties:
+        fileName: { type: string }
+        mimeType: { type: string }
+        fileSize: { type: integer, maximum: 10485760 }
+    ResumeExtraction:
+      type: object
+      required: [fileName, extracted, warnings]
+      properties:
+        fileName: { type: string }
+        extracted:
+          $ref: "#/components/schemas/PortfolioContent"
+        warnings:
+          type: array
+          items: { type: string }
 

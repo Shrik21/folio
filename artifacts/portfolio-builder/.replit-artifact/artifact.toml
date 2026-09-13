@@ -1,0 +1,28 @@
+kind = "web"
+previewPath = "/"
+title = "AI Portfolio Builder"
+description = "A premium portfolio creation app that turns a resume into a polished, shareable personal website through a guided review, design, and publishing flow."
+version = "1.0.0"
+id = "artifacts/portfolio-builder"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 20730
+
+[services.development]
+run = "pnpm --filter @workspace/portfolio-builder run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/portfolio-builder", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/portfolio-builder/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "20730"
+BASE_PATH = "/"

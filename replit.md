@@ -1,6 +1,6 @@
-# [Project name]
+# Folio — AI Portfolio Builder
 
-_Replace the heading above with the project's name, and this line with one sentence describing what this app does for users._
+Folio turns a resume into a polished, editable, and shareable portfolio website.
 
 ## Run & Operate
 
@@ -22,15 +22,28 @@ _Replace the heading above with the project's name, and this line with one sente
 
 ## Where things live
 
-_Populate as you build — short repo map plus pointers to the source-of-truth file for DB schema, API contracts, theme files, etc._
+- `artifacts/portfolio-builder/src/App.tsx` — routed product experience
+- `artifacts/portfolio-builder/src/index.css` — shared dashboard/onboarding tokens
+- `artifacts/api-server/src/routes/portfolios.ts` — portfolio, template, resume, and public URL routes
+- `lib/api-spec/openapi.yaml` — API contract source of truth
+- `lib/db/src/schema/portfolios.ts` — persisted portfolio schema
+- `README.md` — architecture, setup, and security notes
 
 ## Architecture decisions
 
-_Populate as you build — non-obvious choices a reader couldn't infer from the code (3-5 bullets)._
+- Portfolio content is stored once as a JSON document and rendered through a selected template configuration.
+- Draft and published portfolios share one stable slug; publishing only changes state and timestamp.
+- The first product slice uses the shared Express/PostgreSQL service rather than frontend-only state.
+- OpenAPI is the source of truth for client hooks and server validation.
 
 ## Product
 
-_Describe the high-level user-facing capabilities of this app once they exist._
+- Marketing landing page, templates, pricing, login/signup surfaces
+- Resume upload/review onboarding
+- Profession and purpose-based portfolio setup
+- Free and premium template catalog
+- Dashboard for content, templates, appearance, domain, analytics, billing, and settings
+- Published public portfolio pages with view counting
 
 ## User preferences
 
@@ -38,7 +51,9 @@ _Populate as you build — explicit user instructions worth remembering across s
 
 ## Gotchas
 
-_Populate as you build — sharp edges, "always run X before Y" rules._
+- Run `pnpm --filter @workspace/api-spec run codegen` after changing `lib/api-spec/openapi.yaml`.
+- Vite build requires the workflow-provided `PORT` and `BASE_PATH` values.
+- Use managed artifact workflows rather than starting a second server for the same app.
 
 ## Pointers
 
