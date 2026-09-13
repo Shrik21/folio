@@ -6,6 +6,8 @@
  * OpenAPI spec version: 0.1.0
  */
 
+export * from './adminLoginInput';
+export * from './adminSession';
 export * from './education';
 export * from './experience';
 export * from './healthStatus';

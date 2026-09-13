@@ -9,6 +9,17 @@ export interface HealthStatus {
   status: string;
 }
 
+export interface AdminLoginInput {
+  /** @minLength 1 */
+  username: string;
+  /** @minLength 1 */
+  password: string;
+}
+
+export interface AdminSession {
+  authenticated: boolean;
+}
+
 export interface PortfolioTemplate {
   id: string;
   name: string;

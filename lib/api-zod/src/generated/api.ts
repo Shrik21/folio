@@ -538,6 +538,39 @@ export const GetPublicPortfolioResponse = zod.object({
 
 
 /**
+ * @summary Check the current admin session
+ */
+export const GetAdminSessionResponse = zod.object({
+  "authenticated": zod.boolean()
+})
+
+
+/**
+ * @summary Sign in to the admin workspace
+ */
+
+
+
+
+export const AdminLoginBody = zod.object({
+  "username": zod.string().min(1),
+  "password": zod.string().min(1)
+})
+
+export const AdminLoginResponse = zod.object({
+  "authenticated": zod.boolean()
+})
+
+
+/**
+ * @summary End the current admin session
+ */
+export const AdminLogoutResponse = zod.object({
+  "authenticated": zod.boolean()
+})
+
+
+/**
  * @summary Extract portfolio data from a resume
  */
 export const parseResumeBodyFileSizeMax = 10485760;
