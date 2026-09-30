@@ -7,6 +7,10 @@
     {
       "source": "/api/:path*",
       "destination": "https://folio-api-t9uk.onrender.com/api/:path*"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
     }
   ]
 }
