@@ -1,0 +1,12 @@
+{
+  "framework": "vite",
+  "installCommand": "corepack pnpm install --frozen-lockfile",
+  "buildCommand": "corepack pnpm --filter @workspace/portfolio-builder run build",
+  "outputDirectory": "artifacts/portfolio-builder/dist/public",
+  "rewrites": [
+    {
+      "source": "/api/:path*",
+      "destination": "https://folio-api-t9uk.onrender.com/api/:path*"
+    }
+  ]
+}
