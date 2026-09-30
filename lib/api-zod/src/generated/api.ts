@@ -13,7 +13,8 @@ import * as zod from 'zod';
  * @summary Health check
  */
 export const HealthCheckResponse = zod.object({
-  "status": zod.string()
+  "status": zod.string(),
+  "geminiConfigured": zod.boolean()
 })
 
 
@@ -478,7 +479,18 @@ export const UnpublishPortfolioResponse = zod.object({
 
 
 /**
- * @summary View a published portfolio
+ * @summary List published portfolio slugs for sitemap generation
+ */
+export const ListPublishedPortfoliosResponseItem = zod.object({
+  "slug": zod.string(),
+  "updatedAt": zod.string(),
+  "publishedAt": zod.string().nullish()
+})
+export const ListPublishedPortfoliosResponse = zod.array(ListPublishedPortfoliosResponseItem)
+
+
+/**
+ * @summary Read a published portfolio without incrementing views
  */
 export const GetPublicPortfolioParams = zod.object({
   "slug": zod.coerce.string()
@@ -538,6 +550,16 @@ export const GetPublicPortfolioResponse = zod.object({
 
 
 /**
+ * @summary Record a public portfolio page view
+ */
+export const RecordPublicPortfolioViewParams = zod.object({
+  "slug": zod.coerce.string()
+})
+
+export const RecordPublicPortfolioViewResponse = zod.void()
+
+
+/**
  * @summary Check the current admin session
  */
 export const GetAdminSessionResponse = zod.object({
@@ -571,16 +593,41 @@ export const AdminLogoutResponse = zod.object({
 
 
 /**
+ * @summary Get admin dashboard statistics
+ */
+export const GetAdminStatsResponse = zod.object({
+  "users": zod.object({
+  "total": zod.number().int(),
+  "recent": zod.array(zod.object({
+  "id": zod.string(),
+  "name": zod.string(),
+  "email": zod.string().nullish(),
+  "provider": zod.string(),
+  "createdAt": zod.string()
+}))
+}),
+  "portfolios": zod.object({
+  "total": zod.number().int(),
+  "published": zod.number().int(),
+  "drafts": zod.number().int(),
+  "totalViews": zod.number().int(),
+  "recent": zod.array(zod.object({
+  "id": zod.number().int(),
+  "slug": zod.string(),
+  "ownerId": zod.string(),
+  "status": zod.string(),
+  "views": zod.number().int(),
+  "updatedAt": zod.string()
+}))
+})
+})
+
+
+/**
  * @summary Extract portfolio data from a resume
  */
-export const parseResumeBodyFileSizeMax = 10485760;
-
-
-
 export const ParseResumeBody = zod.object({
-  "fileName": zod.string(),
-  "mimeType": zod.string(),
-  "fileSize": zod.number().int().max(parseResumeBodyFileSizeMax)
+  "file": zod.instanceof(Blob)
 })
 
 export const ParseResumeResponse = zod.object({

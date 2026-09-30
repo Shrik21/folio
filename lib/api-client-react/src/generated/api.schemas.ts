@@ -7,6 +7,7 @@
  */
 export interface HealthStatus {
   status: string;
+  geminiConfigured: boolean;
 }
 
 export interface AdminLoginInput {
@@ -18,6 +19,42 @@ export interface AdminLoginInput {
 
 export interface AdminSession {
   authenticated: boolean;
+}
+
+export type AdminStatsResponseUsersRecentItem = {
+  id: string;
+  name: string;
+  /** @nullable */
+  email?: string | null;
+  provider: string;
+  createdAt: string;
+};
+
+export type AdminStatsResponseUsers = {
+  total: number;
+  recent: AdminStatsResponseUsersRecentItem[];
+};
+
+export type AdminStatsResponsePortfoliosRecentItem = {
+  id: number;
+  slug: string;
+  ownerId: string;
+  status: string;
+  views: number;
+  updatedAt: string;
+};
+
+export type AdminStatsResponsePortfolios = {
+  total: number;
+  published: number;
+  drafts: number;
+  totalViews: number;
+  recent: AdminStatsResponsePortfoliosRecentItem[];
+};
+
+export interface AdminStatsResponse {
+  users: AdminStatsResponseUsers;
+  portfolios: AdminStatsResponsePortfolios;
 }
 
 export interface PortfolioTemplate {
@@ -121,10 +158,7 @@ export interface PortfolioUpdate {
 }
 
 export interface ResumeParseInput {
-  fileName: string;
-  mimeType: string;
-  /** @maximum 10485760 */
-  fileSize: number;
+  file: Blob;
 }
 
 export interface ResumeExtraction {
@@ -132,4 +166,11 @@ export interface ResumeExtraction {
   extracted: PortfolioContent;
   warnings: string[];
 }
+
+export type ListPublishedPortfolios200Item = {
+  slug: string;
+  updatedAt: string;
+  /** @nullable */
+  publishedAt?: string | null;
+};
 

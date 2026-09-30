@@ -1,218 +1,226 @@
-import { useState, type ReactNode } from 'react';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { useState, type ReactNode } from "react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
-  ArrowRight, BarChart3, Check, ChevronRight,
-  Copy, ExternalLink, FileText, Globe2, Layers3, LayoutDashboard, Link2,
-  Loader2, Lock, Menu, Palette, Pencil, Plus, Rocket, Settings, ShieldCheck,
-  Sparkles, Upload, X, Zap
-} from 'lucide-react';
+  ArrowRight,
+  BarChart3,
+  Check,
+  ChevronRight,
+  Copy,
+  ExternalLink,
+  FileText,
+  Globe2,
+  Layers3,
+  LayoutDashboard,
+  Link2,
+  Loader2,
+  Lock,
+  Menu,
+  Palette,
+  Pencil,
+  Plus,
+  Rocket,
+  Settings,
+  ShieldCheck,
+  Sparkles,
+  Upload,
+  X,
+  Zap,
+} from "lucide-react";
 import {
-  getGetAdminSessionQueryKey, getGetCurrentPortfolioQueryKey, getGetPublicPortfolioQueryKey, getListTemplatesQueryKey,
-  useAdminLogin, useAdminLogout, useCreatePortfolio, useGetAdminSession, useGetCurrentPortfolio,
-  useGetPublicPortfolio, useListTemplates, useParseResume, usePublishPortfolio, useUnpublishPortfolio,
-  useUpdatePortfolio
-} from '@workspace/api-client-react';
-import { ErrorBoundary } from '@/components/error-boundary';
-import { Toaster } from '@/components/ui/toaster';
-import { TooltipProvider } from '@/components/ui/tooltip';
-import NotFound from '@/pages/not-found';
-import { Link, Route, Router as WouterRouter, Switch, useLocation, useParams } from 'wouter';
+  getGetAdminSessionQueryKey,
+  getGetCurrentPortfolioQueryKey,
+  getGetPublicPortfolioQueryKey,
+  getListTemplatesQueryKey,
+  useAdminLogin,
+  useAdminLogout,
+  useCreatePortfolio,
+  useGetAdminSession,
+  useGetCurrentPortfolio,
+  useGetPublicPortfolio,
+  useListTemplates,
+  useParseResume,
+  usePublishPortfolio,
+  useUnpublishPortfolio,
+  useUpdatePortfolio,
+} from "@workspace/api-client-react";
+import { ErrorBoundary } from "@/components/error-boundary";
+import { Toaster } from "@/components/ui/toaster";
+import { TooltipProvider } from "@/components/ui/tooltip";
+import NotFound from "@/pages/not-found";
+import {
+  Link,
+  Route,
+  Router as WouterRouter,
+  Switch,
+  useLocation,
+  useParams,
+} from "wouter";
 
-const queryClient = new QueryClient();
-const sampleContent: any = {
-  personalInfo: {
-    name: 'Maya Chen', headline: 'Product designer shaping quieter, better tools.',
-    email: 'maya.chen@email.com', phone: '+1 415 555 0148', location: 'Brooklyn, New York',
-    summary: 'I design digital products where clarity is a feature. Over the last decade, I have helped teams turn complex systems into experiences people trust.',
-    avatar: null,
-  },
-  experience: [
-    { id: '1', role: 'Senior Product Designer', company: 'Northstar', period: '2021 — Present', description: 'Leading product design across the core platform and a new generation of collaborative workflows.' },
-    { id: '2', role: 'Product Designer', company: 'Fieldwork', period: '2017 — 2021', description: 'Built the design language and launched tools used by 40,000 independent teams.' },
-  ],
-  education: [{ id: '1', school: 'Rhode Island School of Design', degree: 'BFA, Industrial Design', period: '2013 — 2017' }],
-  skills: ['Product strategy', 'Interaction design', 'Design systems', 'Prototyping', 'Research'],
-  projects: [
-    { id: '1', name: 'Northstar OS', description: 'A new operating system for collaborative teams.', technologies: ['Product', 'Systems'], githubUrl: '', liveUrl: '', image: null },
-    { id: '2', name: 'Field Notes', description: 'A field guide to making room for better work.', technologies: ['Editorial', 'Writing'], githubUrl: '', liveUrl: '', image: null },
-  ],
-  socialLinks: { github: '', linkedin: 'linkedin.com/in/mayachen', twitter: '', website: '' },
-};
+import { queryClient } from "@/lib/folio-data";
+import { Landing, Templates, Pricing } from "@/pages/marketing";
+import { Auth, AdminPage, AdminGate } from "@/pages/auth";
+import {
+  OnboardingLayout,
+  UploadPage,
+  DetailsPage,
+  ProfessionPage,
+  PreviewPage,
+} from "@/pages/onboarding";
+import {
+  DashboardHome,
+  DashboardPage,
+  PublicPortfolio,
+} from "@/pages/workspace";
 
-const blankContent: any = {
-  personalInfo: { name: '', headline: '', email: '', phone: '', location: '', summary: '', avatar: null },
-  experience: [], education: [], skills: [], projects: [],
-  socialLinks: { github: '', linkedin: '', twitter: '', website: '' },
-};
-
-function readOnboardingDraft(): any {
-  if (typeof window === 'undefined') return {};
-  try { return JSON.parse(sessionStorage.getItem('folio-onboarding') || '{}'); } catch { return {}; }
-}
-
-function saveOnboardingDraft(next: any) {
-  if (typeof window !== 'undefined') sessionStorage.setItem('folio-onboarding', JSON.stringify({ ...readOnboardingDraft(), ...next }));
-}
-
-function Button({ children, variant = 'primary', className = '', ...props }: any) {
-  const styles: any = {
-    primary: 'bg-primary text-primary-foreground hover:-translate-y-0.5 hover:shadow-lg focus-visible:ring-2 focus-visible:ring-accent',
-    secondary: 'bg-secondary text-secondary-foreground hover:bg-accent/30 focus-visible:ring-2 focus-visible:ring-accent',
-    outline: 'border border-border bg-card text-foreground hover:-translate-y-0.5 hover:border-foreground focus-visible:ring-2 focus-visible:ring-accent',
-    ghost: 'text-muted-foreground hover:text-foreground hover:bg-secondary focus-visible:ring-2 focus-visible:ring-accent',
-  };
-  return <button {...props} className={`inline-flex items-center justify-center gap-2 rounded-[2px] px-4 py-2.5 text-sm font-semibold transition-all ${styles[variant]} ${className}`} />;
-}
-
-function Brand({ light = false }: { light?: boolean }) {
-  return <Link href="/" data-testid="link-brand" className={`group flex items-center gap-2.5 font-display text-xl font-semibold tracking-tight ${light ? 'text-background' : 'text-foreground'}`}>
-    <span className={`relative grid h-8 w-8 place-items-center rounded-full transition-transform group-hover:rotate-12 ${light ? 'bg-accent text-foreground' : 'bg-primary text-primary-foreground'}`}><span className="h-2.5 w-2.5 rounded-full border-2 border-current" /><span className="absolute -right-0.5 top-0.5 h-1.5 w-1.5 rounded-full bg-current" /></span>
-    <span>Folio<span className="text-accent">.</span></span>
-  </Link>;
-}
-
-function MarketingNav() {
-  const [open, setOpen] = useState(false);
-  return <header className="relative z-20 mx-auto flex max-w-7xl items-center justify-between px-5 py-5 lg:px-8">
-    <Brand />
-    <nav className="hidden items-center gap-7 text-sm text-muted-foreground md:flex">
-      <Link href="/templates" data-testid="link-nav-templates" className="hover:text-foreground">Templates</Link>
-      <Link href="/pricing" data-testid="link-nav-pricing" className="hover:text-foreground">Pricing</Link>
-      <a href="#story" data-testid="link-nav-story" className="hover:text-foreground">Our approach</a>
-    </nav>
-    <div className="flex items-center gap-2">
-      <Link href="/login" data-testid="link-nav-login" className="hidden px-3 py-2 text-sm font-semibold text-muted-foreground hover:text-foreground sm:inline">Sign in</Link>
-      <Link href="/signup" data-testid="link-nav-signup" className="rounded-[2px] bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground hover:-translate-y-0.5 hover:shadow-lg">Build yours <ArrowRight className="ml-1 inline h-4 w-4" /></Link>
-      <button onClick={() => setOpen(!open)} className="ml-1 grid h-10 w-10 place-items-center border border-border md:hidden" aria-label={open ? 'Close menu' : 'Open menu'} aria-expanded={open} data-testid="button-mobile-menu">{open ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}</button>
+function Router() {
+  const [location] = useLocation();
+  const dashboard = location.startsWith("/dashboard");
+  return (
+    <div key={location} className="page-enter">
+      <ErrorBoundary resetKey={location}>
+        {dashboard ? (
+          <AdminGate>
+            <Switch>
+              <Route path="/dashboard" component={DashboardHome} />
+              <Route
+                path="/dashboard/portfolio"
+                component={() => <DashboardPage section="portfolio" />}
+              />
+              <Route
+                path="/dashboard/content"
+                component={() => <DashboardPage section="content" />}
+              />
+              <Route
+                path="/dashboard/templates"
+                component={() => <DashboardPage section="templates" />}
+              />
+              <Route
+                path="/dashboard/appearance"
+                component={() => <DashboardPage section="appearance" />}
+              />
+              <Route
+                path="/dashboard/domain"
+                component={() => <DashboardPage section="domain" />}
+              />
+              <Route
+                path="/dashboard/analytics"
+                component={() => <DashboardPage section="analytics" />}
+              />
+              <Route
+                path="/dashboard/billing"
+                component={() => <DashboardPage section="billing" />}
+              />
+              <Route
+                path="/dashboard/settings"
+                component={() => <DashboardPage section="settings" />}
+              />
+              <Route component={NotFound} />
+            </Switch>
+          </AdminGate>
+        ) : (
+          <Switch>
+            <Route path="/" component={Landing} />
+            <Route path="/templates" component={() => <Templates />} />
+            <Route path="/pricing" component={Pricing} />
+            <Route path="/login" component={() => <Auth />} />
+            <Route path="/signup" component={() => <Auth signup />} />
+            <Route path="/admin" component={AdminPage} />
+            <Route
+              path="/onboarding"
+              component={() => (
+                <OnboardingLayout
+                  current={0}
+                  eyebrow="A short guided setup"
+                  title="Five thoughtful minutes to a portfolio you can share."
+                >
+                  <div className="mt-12 grid gap-3 sm:grid-cols-2">
+                    {[
+                      [
+                        "01",
+                        "Upload your resume",
+                        "We start with the experience you already have.",
+                      ],
+                      [
+                        "02",
+                        "Review the first draft",
+                        "Keep what sounds like you.",
+                      ],
+                      [
+                        "03",
+                        "Choose your direction",
+                        "Give the page a purpose.",
+                      ],
+                      [
+                        "04",
+                        "Pick a template",
+                        "Find the right room for the work.",
+                      ],
+                      [
+                        "05",
+                        "Preview and publish",
+                        "Send it out when it feels ready.",
+                      ],
+                    ].map(([n, t, d]) => (
+                      <Link
+                        href={
+                          n === "01"
+                            ? "/onboarding/upload"
+                            : n === "02"
+                              ? "/onboarding/details"
+                              : n === "03"
+                                ? "/onboarding/profession"
+                                : n === "04"
+                                  ? "/onboarding/templates"
+                                  : "/onboarding/preview"
+                        }
+                        key={n}
+                        data-testid={`link-onboarding-step-${n}`}
+                        className="group flex items-center gap-5 border border-border bg-card p-5 hover:-translate-y-0.5 hover:border-foreground"
+                      >
+                        <span className="font-mono-ui text-xs text-accent">
+                          {n}
+                        </span>
+                        <span className="flex-1">
+                          <strong className="block">{t}</strong>
+                          <span className="mt-1 block text-sm text-muted-foreground">
+                            {d}
+                          </span>
+                        </span>
+                        <ArrowRight className="h-4 w-4 text-muted-foreground transition-transform group-hover:translate-x-1" />
+                      </Link>
+                    ))}
+                  </div>
+                </OnboardingLayout>
+              )}
+            />
+            <Route path="/onboarding/upload" component={UploadPage} />
+            <Route path="/onboarding/details" component={DetailsPage} />
+            <Route path="/onboarding/profession" component={ProfessionPage} />
+            <Route
+              path="/onboarding/templates"
+              component={() => <Templates onboarding />}
+            />
+            <Route path="/onboarding/preview" component={PreviewPage} />
+            <Route path="/p/:slug" component={PublicPortfolio} />
+            <Route component={NotFound} />
+          </Switch>
+        )}
+      </ErrorBoundary>
     </div>
-    {open && <nav className="absolute left-5 right-5 top-[calc(100%-4px)] grid gap-1 border border-border bg-card p-2 shadow-xl md:hidden" data-testid="nav-mobile"><Link href="/templates" onClick={() => setOpen(false)} className="px-3 py-3 text-sm hover:bg-secondary">Templates</Link><Link href="/pricing" onClick={() => setOpen(false)} className="px-3 py-3 text-sm hover:bg-secondary">Pricing</Link><a href="#story" onClick={() => setOpen(false)} className="px-3 py-3 text-sm hover:bg-secondary">Our approach</a><Link href="/login" onClick={() => setOpen(false)} className="border-t border-border px-3 py-3 text-sm font-semibold">Sign in</Link></nav>}
-  </header>;
+  );
 }
 
-function Landing() {
-  return <main className="grain min-h-[100dvh] overflow-hidden bg-background">
-    <MarketingNav />
-    <section className="relative mx-auto grid max-w-7xl items-center gap-14 px-5 pb-24 pt-12 lg:grid-cols-[.84fr_1.16fr] lg:px-8 lg:pb-32 lg:pt-20">
-      <div className="pointer-events-none absolute -left-20 top-16 h-72 w-72 rounded-full bg-accent/15 blur-3xl" />
-      <div className="relative z-10 animate-rise">
-        <p className="mb-7 flex items-center gap-3 font-mono-ui text-[11px] uppercase tracking-[.24em] text-muted-foreground"><span className="h-px w-8 bg-accent" /> A better place to be found</p>
-        <h1 className="max-w-xl font-display text-6xl leading-[.9] tracking-[-.045em] text-foreground sm:text-7xl lg:text-[6.6rem]">Your work,<br /><em className="text-accent">well represented.</em></h1>
-        <p className="mt-8 max-w-md text-lg leading-8 text-muted-foreground">Folio turns the resume you already have into a portfolio that sounds like you, looks considered, and is ready to share.</p>
-        <div className="mt-9 flex flex-wrap gap-3">
-          <Link href="/signup" data-testid="link-hero-start" className="group inline-flex items-center gap-3 rounded-[2px] bg-primary px-5 py-3.5 text-sm font-semibold text-primary-foreground shadow-sm hover:-translate-y-1 hover:shadow-xl">Start with your resume <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" /></Link>
-          <Link href="/templates" data-testid="link-hero-templates" className="inline-flex items-center gap-2 rounded-[2px] border border-border px-5 py-3.5 text-sm font-semibold hover:-translate-y-1 hover:border-foreground">Explore templates</Link>
-        </div>
-        <p className="mt-6 font-mono-ui text-[10px] uppercase tracking-[.14em] text-muted-foreground">No design degree required <span className="mx-2 text-accent">/</span> Free to start</p>
-      </div>
-      <div className="relative min-h-[450px] animate-rise animate-rise-1 sm:min-h-[560px]">
-        <div className="absolute -right-4 top-0 h-10 w-28 border-t border-foreground/30 sm:right-4" />
-        <div className="absolute right-0 top-5 h-[82%] w-[78%] rotate-2 border border-border bg-card p-5 shadow-2xl transition-transform duration-500 hover:rotate-0 sm:p-8">
-          <div className="flex items-start justify-between border-b border-border pb-5"><div><p className="font-mono-ui text-[10px] uppercase tracking-widest text-muted-foreground">Folio / 01</p><h2 className="mt-5 font-display text-4xl leading-none">Maya<br /><span className="text-muted-foreground">Chen</span></h2></div><div className="ambient-orb h-16 w-16 rounded-full bg-accent/70" /></div>
-          <div className="mt-7 grid grid-cols-[1fr_1.5fr] gap-4 text-xs"><p className="font-mono-ui uppercase tracking-widest text-muted-foreground">About</p><p className="leading-5">Product designer shaping quieter, better tools.</p></div>
-          <div className="mt-8 border-t border-border pt-4"><p className="font-mono-ui text-[10px] uppercase tracking-widest text-muted-foreground">Selected work</p><div className="mt-5 grid grid-cols-2 gap-3"><div className="relative h-24 overflow-hidden bg-primary"><span className="absolute -right-4 -top-4 h-20 w-20 rounded-full border border-accent/50" /></div><div className="relative h-24 overflow-hidden bg-[#d7b88b]"><span className="absolute bottom-3 left-3 h-8 w-8 border-2 border-primary/50" /></div></div></div>
-          <div className="mt-8 flex items-center justify-between border-t border-border pt-4 font-mono-ui text-[10px] uppercase tracking-widest text-muted-foreground"><span>Brooklyn / NY</span><span>2024—25</span></div>
-        </div>
-        <div className="absolute bottom-2 left-0 w-52 -rotate-6 bg-primary p-5 text-primary-foreground shadow-xl transition-transform duration-500 hover:rotate-0 sm:w-64 sm:p-7"><p className="font-mono-ui text-[10px] uppercase tracking-widest text-accent">A note from Folio</p><p className="mt-6 font-display text-2xl leading-tight">The best work deserves a little context.</p><p className="mt-10 text-xs text-primary-foreground/60">Built to be read, not scrolled past.</p></div>
-        <div className="absolute -right-4 bottom-14 grid h-20 w-20 place-items-center rounded-full border border-foreground bg-background text-center font-mono-ui text-[9px] uppercase tracking-widest animate-drift sm:right-5">Made<br />visible</div>
-      </div>
-    </section>
-    <section id="story" className="border-y border-border bg-secondary/45">
-      <div className="mx-auto grid max-w-7xl gap-10 px-5 py-20 lg:grid-cols-[.7fr_1.3fr] lg:px-8 lg:py-28"><p className="font-mono-ui text-[11px] uppercase tracking-[.22em] text-muted-foreground">01 / The difference</p><div><h2 className="editorial-rule max-w-3xl font-display text-4xl leading-tight sm:text-5xl">A portfolio is not a second resume. It is the room around the work.</h2><div className="mt-12 grid gap-8 border-t border-border pt-8 sm:grid-cols-3"><InfoBlock n="01" title="Start from truth" text="Bring your resume. Folio finds the shape already hiding in your experience." /><InfoBlock n="02" title="Make it yours" text="Edit the language, choose the atmosphere, keep the parts that feel like you." /><InfoBlock n="03" title="Send it out" text="Publish a link that feels like a considered introduction, not a template." /></div></div></div>
-    </section>
-    <section className="mx-auto max-w-7xl px-5 py-20 lg:px-8 lg:py-28"><div className="grid gap-10 lg:grid-cols-2"><div><p className="font-mono-ui text-[11px] uppercase tracking-[.22em] text-muted-foreground">02 / For the in-between</p><h2 className="mt-6 max-w-lg font-display text-5xl leading-[1.02]">For the next chapter, whatever it is.</h2></div><div className="space-y-7 pt-2 text-muted-foreground"><p className="max-w-md text-lg leading-8">Maybe you are changing direction. Maybe the work has outgrown the document. Maybe you are simply ready for your introduction to have a point of view.</p><Link href="/signup" data-testid="link-story-signup" className="group inline-flex items-center gap-2 font-semibold text-foreground underline decoration-accent decoration-2 underline-offset-4">Make a little room for the work <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" /></Link></div></div></section>
-    <section className="border-y border-border bg-primary text-primary-foreground"><div className="mx-auto grid max-w-7xl gap-10 px-5 py-16 lg:grid-cols-[.7fr_1.3fr] lg:px-8 lg:py-20"><p className="font-mono-ui text-[11px] uppercase tracking-[.22em] text-primary-foreground/50">03 / The promise</p><div><p className="max-w-3xl font-display text-4xl leading-tight sm:text-5xl">A clearer introduction changes what people notice about you.</p><Link href="/signup" className="mt-8 inline-flex items-center gap-2 rounded-[2px] bg-accent px-5 py-3 font-semibold text-primary hover:-translate-y-1" data-testid="link-promise-signup">Make yours <ArrowRight className="h-4 w-4" /></Link></div></div></section>
-    <footer className="bg-primary px-5 py-10 text-primary-foreground lg:px-8"><div className="mx-auto flex max-w-7xl flex-col justify-between gap-6 sm:flex-row sm:items-end"><div><Brand light /><p className="mt-5 max-w-xs text-sm leading-6 text-primary-foreground/60">A calmer way to make your work findable.</p></div><p className="font-mono-ui text-[10px] uppercase tracking-widest text-primary-foreground/50">© Folio / 2025</p></div></footer>
-  </main>;
+function App() {
+  return (
+    <QueryClientProvider client={queryClient}>
+      <TooltipProvider>
+        <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
+          <Router />
+        </WouterRouter>
+        <Toaster />
+      </TooltipProvider>
+    </QueryClientProvider>
+  );
 }
-
-function InfoBlock({ n, title, text }: { n: string; title: string; text: string }) { return <div><span className="font-mono-ui text-[10px] text-accent">{n}</span><h3 className="mt-5 font-semibold">{title}</h3><p className="mt-3 text-sm leading-6 text-muted-foreground">{text}</p></div>; }
-
-function TemplateCard({ template, onChoose, selected }: any) {
-  const tone = template.accent || '#D5B895';
-  return <div className={`group overflow-hidden border bg-card transition-all hover:-translate-y-1 hover:shadow-xl ${selected ? 'border-foreground ring-2 ring-accent' : 'border-border'}`} data-testid={`card-template-${template.id}`}>
-    <div className="relative h-56 overflow-hidden p-6" style={{ background: tone }}>
-      <div className="absolute right-5 top-5 h-9 w-9 rounded-full border-2 border-primary/50" /><p className="font-mono-ui text-[9px] uppercase tracking-widest text-primary/70">Folio / {template.category || 'Studio'}</p><h3 className="mt-12 max-w-[190px] font-display text-3xl leading-none text-primary">{template.name}</h3><div className="absolute bottom-6 left-6 right-6 border-t border-primary/20 pt-2 font-mono-ui text-[9px] uppercase tracking-widest text-primary/60">{template.layout || 'Editorial'} layout</div>
-    </div>
-     <div className="p-5"><div className="flex items-start justify-between gap-3"><div><h3 className="font-semibold">{template.name}</h3><p className="mt-1 text-sm text-muted-foreground">{template.description}</p></div>{template.premium && <span className="font-mono-ui text-[9px] uppercase tracking-widest text-accent">Plus</span>}</div><Button variant={selected ? 'primary' : 'outline'} className="mt-5 w-full" onClick={() => onChoose?.(template)} data-testid={`button-choose-template-${template.id}`}>{selected ? <><Check className="h-4 w-4" /> Selected</> : 'Use this template'}</Button></div>
-  </div>;
-}
-
-function Templates({ onboarding = false }: { onboarding?: boolean }) {
-  const { data, isLoading, isError } = useListTemplates({ query: { queryKey: getListTemplatesQueryKey() } });
-  const templates: any[] = (data as any) || [];
-  const [chosen, setChosen] = useState<string>(() => readOnboardingDraft().templateId || '');
-  const [filter, setFilter] = useState('All');
-  const filters = ['All', 'Editorial', 'Minimal'];
-  const filteredTemplates = filter === 'All' ? templates : templates.filter((template) => String(template.category || '').toLowerCase().includes(filter.toLowerCase()));
-   return <main className="min-h-[100dvh] bg-background"><MarketingNav /><section className="mx-auto max-w-7xl px-5 pb-20 pt-14 lg:px-8"><div className="max-w-2xl animate-rise"><p className="font-mono-ui text-[11px] uppercase tracking-[.22em] text-muted-foreground">{onboarding ? 'Step 04 / 05' : 'The Folio library'}</p><h1 className="mt-6 font-display text-6xl leading-[.94] tracking-tight sm:text-7xl">{onboarding ? 'Choose the room your work lives in.' : 'Templates with a point of view.'}</h1><p className="mt-6 max-w-xl text-lg leading-8 text-muted-foreground">Every template is designed to give your work enough space to speak. Start with a structure, then make it yours.</p></div><div className="mt-14 flex flex-wrap gap-5 border-b border-border pb-4 font-mono-ui text-[10px] uppercase tracking-widest">{filters.map((item) => <button key={item} onClick={() => setFilter(item)} className={`border-b-2 pb-4 ${filter === item ? 'border-foreground text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground'}`} data-testid={`button-filter-${item.toLowerCase()}`}>{item === 'All' ? 'All templates' : item}</button>)}<span className="ml-auto hidden items-center gap-2 text-muted-foreground sm:flex"><Sparkles className="h-3.5 w-3.5 text-accent" /> Each one is responsive by design</span></div>{isError && <div className="mt-5 rounded-md border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">Templates could not be loaded. Refresh to try again.</div>}{isLoading ? <div className="mt-10 grid gap-6 md:grid-cols-3">{[1,2,3].map(n => <div key={n} className="h-[390px] animate-pulse bg-secondary" />)}</div> : <div className="mt-10 grid gap-6 md:grid-cols-3">{filteredTemplates.map(t => <TemplateCard key={t.id} template={t} selected={chosen === t.id} onChoose={() => { setChosen(t.id); saveOnboardingDraft({ templateId: t.id }); }} />)}{filteredTemplates.length === 0 && <div className="border border-dashed border-border p-10 text-sm text-muted-foreground md:col-span-3">No templates in this collection yet. Try another point of view.</div>}</div>}{onboarding && <div className="mt-10 flex justify-end"><Link href="/onboarding/preview" data-testid="link-continue-template" className="inline-flex items-center gap-2 rounded-[2px] bg-primary px-5 py-3 font-semibold text-primary-foreground">Continue to preview <ArrowRight className="h-4 w-4" /></Link></div>}</section></main>;
-}
-
-function Pricing() {
-  return <main className="min-h-[100dvh] bg-background"><MarketingNav /><section className="mx-auto max-w-7xl px-5 pb-24 pt-16 lg:px-8"><div className="max-w-2xl"><p className="font-mono-ui text-[11px] uppercase tracking-[.22em] text-muted-foreground">Simple, on purpose</p><h1 className="mt-6 font-display text-6xl leading-none sm:text-7xl">A small investment<br /><em className="text-accent">in being findable.</em></h1><p className="mt-6 max-w-lg text-lg leading-8 text-muted-foreground">Start with the tools to make something you are proud of. Upgrade when you are ready to put it on your own domain.</p></div><div className="mt-16 grid gap-5 lg:grid-cols-[.85fr_1.15fr]"><Plan name="Free" price="$0" note="For getting started" features={['Resume to portfolio flow', 'One published portfolio', 'Folio subdomain', 'Core templates']} /><Plan featured name="Studio" price="$12" note="For making an impression" features={['Everything in Free', 'Custom domain', 'Premium templates', 'Portfolio analytics', 'Priority support']} /></div></section></main>;
-}
-function Plan({ name, price, note, features, featured }: any) { return <div className={`relative border p-7 sm:p-10 ${featured ? 'border-primary bg-primary text-primary-foreground lg:-mt-5 lg:mb-5' : 'border-border bg-card'}`}><div className="flex items-start justify-between"><div><p className={`font-mono-ui text-[10px] uppercase tracking-widest ${featured ? 'text-accent' : 'text-muted-foreground'}`}>{name}</p><h2 className="mt-5 font-display text-5xl">{price}<span className="font-sans text-base"> / month</span></h2><p className={`mt-2 text-sm ${featured ? 'text-primary-foreground/60' : 'text-muted-foreground'}`}>{note}</p></div>{featured && <span className="rounded-full bg-accent px-3 py-1 font-mono-ui text-[9px] uppercase tracking-widest text-primary">Most chosen</span>}</div><div className={`my-9 border-t ${featured ? 'border-primary-foreground/20' : 'border-border'}`} /> <ul className="space-y-4">{features.map((f: string) => <li key={f} className="flex items-center gap-3 text-sm"><Check className={`h-4 w-4 ${featured ? 'text-accent' : 'text-accent'}`} /> {f}</li>)}</ul><Link href="/signup" data-testid={`link-plan-${name.toLowerCase()}`} className={`mt-10 inline-flex w-full items-center justify-center rounded-md px-4 py-3 font-semibold ${featured ? 'bg-accent text-primary' : 'border border-border hover:border-foreground'}`}>Start with {name} <ArrowRight className="ml-2 h-4 w-4" /></Link></div>; }
-
-function Auth({ signup = false }: { signup?: boolean }) { const [, setLocation] = useLocation(); return <main className="grain flex min-h-[100dvh] bg-primary"><div className="relative hidden w-[42%] flex-col justify-between overflow-hidden p-10 text-primary-foreground lg:flex"><div className="pointer-events-none absolute -right-24 top-24 h-72 w-72 rounded-full border border-accent/30 animate-float-slow" /><div className="pointer-events-none absolute bottom-24 right-20 h-24 w-24 rounded-full bg-accent/20 blur-xl" /><Brand light /><div className="relative"><p className="font-mono-ui text-[11px] uppercase tracking-[.22em] text-accent">A portfolio, not a performance</p><h1 className="mt-6 max-w-md font-display text-6xl leading-[.95]">Let the work<br /><em className="text-accent">introduce you.</em></h1><p className="mt-8 max-w-sm text-sm leading-6 text-primary-foreground/60">A quieter place to turn your experience into something people remember.</p></div><p className="font-mono-ui text-[10px] uppercase tracking-widest text-primary-foreground/40">Folio / Your work, well represented.</p></div><div className="flex flex-1 items-center justify-center bg-background px-5 py-12"><div className="w-full max-w-md animate-rise"><div className="mb-10 lg:hidden"><Brand /></div><p className="font-mono-ui text-[11px] uppercase tracking-widest text-muted-foreground">{signup ? 'Begin here' : 'Welcome back'}</p><h1 className="mt-4 font-display text-5xl leading-none">{signup ? 'Make a little room for your work.' : 'Good to see you again.'}</h1><p className="mt-5 text-sm leading-6 text-muted-foreground">{signup ? 'Your first draft is closer than you think.' : 'Pick up where you left off.'}</p><form className="mt-9 space-y-4" onSubmit={(e) => { e.preventDefault(); setLocation(signup ? '/onboarding' : '/dashboard'); }}><label className="block text-sm font-semibold">Email address<input required type="email" placeholder="you@example.com" className="mt-2 w-full rounded-[2px] border border-input bg-card px-4 py-3 outline-none focus:border-foreground focus:ring-2 focus:ring-accent/50" data-testid="input-email" /></label>{signup && <label className="block text-sm font-semibold">Your name<input required placeholder="Your name" className="mt-2 w-full rounded-[2px] border border-input bg-card px-4 py-3 outline-none focus:border-foreground focus:ring-2 focus:ring-accent/50" data-testid="input-name" /></label>}<label className="block text-sm font-semibold">Password<input required type="password" placeholder="At least 8 characters" className="mt-2 w-full rounded-[2px] border border-input bg-card px-4 py-3 outline-none focus:border-foreground focus:ring-2 focus:ring-accent/50" data-testid="input-password" /></label><Button className="mt-3 w-full" type="submit">{signup ? 'Create your Folio' : 'Sign in'} <ArrowRight className="h-4 w-4" /></Button></form><p className="mt-8 text-center text-sm text-muted-foreground">{signup ? 'Already have an account? ' : 'New to Folio? '}<Link href={signup ? '/login' : '/signup'} data-testid="link-auth-switch" className="font-semibold text-foreground underline underline-offset-4">{signup ? 'Sign in' : 'Create an account'}</Link></p><p className="mt-10 flex items-center justify-center gap-2 text-center text-xs text-muted-foreground"><Lock className="h-3 w-3" /> Your work stays yours.</p></div></div></main>; }
-
-function AdminPage() {
-  const [, setLocation] = useLocation();
-  const [username, setUsername] = useState('Admin');
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
-  const session = useGetAdminSession({ query: { queryKey: getGetAdminSessionQueryKey() } });
-  const login = useAdminLogin();
-  const logout = useAdminLogout();
-
-  if (session.data?.authenticated) {
-    return <main className="grain min-h-[100dvh] bg-background"><div className="mx-auto max-w-5xl px-5 py-8 lg:px-8"><div className="flex items-center justify-between border-b border-border pb-6"><Brand /><Button variant="ghost" onClick={() => logout.mutate(undefined, { onSuccess: () => session.refetch() })}>Sign out</Button></div><div className="mx-auto max-w-3xl py-20 animate-rise"><p className="font-mono-ui text-[11px] uppercase tracking-[.22em] text-accent">Admin / authenticated</p><h1 className="mt-5 font-display text-6xl leading-none">Welcome back.</h1><p className="mt-6 max-w-xl text-lg leading-8 text-muted-foreground">The admin session is active. Continue into the workspace to review the live portfolio and product surfaces.</p><div className="mt-10 flex flex-wrap gap-3"><Button onClick={() => setLocation('/dashboard')}>Open workspace <ArrowRight className="h-4 w-4" /></Button><Link href="/" className="inline-flex items-center rounded-[2px] border border-border px-4 py-2.5 text-sm font-semibold hover:border-foreground">View marketing site</Link></div></div></div></main>;
-  }
-
-  const submit = (event: React.FormEvent) => {
-    event.preventDefault();
-    setError('');
-    login.mutate({ data: { username, password } }, {
-      onSuccess: () => { setPassword(''); session.refetch(); },
-      onError: (cause: any) => setError(cause?.message || 'Those credentials could not be verified.'),
-    });
-  };
-
-  return <main className="grain flex min-h-[100dvh] bg-primary"><div className="relative hidden w-[42%] flex-col justify-between overflow-hidden p-10 text-primary-foreground lg:flex"><div className="pointer-events-none absolute -right-24 top-24 h-72 w-72 rounded-full border border-accent/30 animate-float-slow" /><Brand light /><div className="relative"><p className="font-mono-ui text-[11px] uppercase tracking-[.22em] text-accent">Private workspace</p><h1 className="mt-6 max-w-md font-display text-6xl leading-[.95]">Keep the<br /><em className="text-accent">whole picture.</em></h1><p className="mt-8 max-w-sm text-sm leading-6 text-primary-foreground/60">Admin access stays separate from the public Folio experience.</p></div><p className="font-mono-ui text-[10px] uppercase tracking-widest text-primary-foreground/40">Folio / Admin</p></div><div className="flex flex-1 items-center justify-center bg-background px-5 py-12"><div className="w-full max-w-md animate-rise"><div className="mb-10 lg:hidden"><Brand /></div><p className="font-mono-ui text-[11px] uppercase tracking-widest text-muted-foreground">Admin access</p><h1 className="mt-4 font-display text-5xl leading-none">Good to see you.</h1><p className="mt-5 text-sm leading-6 text-muted-foreground">Sign in to manage the Folio workspace.</p><form className="mt-9 space-y-4" onSubmit={submit}><label className="block text-sm font-semibold">Username<input required value={username} onChange={(event) => setUsername(event.target.value)} autoComplete="username" className="mt-2 w-full rounded-[2px] border border-input bg-card px-4 py-3 outline-none focus:border-foreground focus:ring-2 focus:ring-accent/50" data-testid="input-admin-username" /></label><label className="block text-sm font-semibold">Password<input required type="password" value={password} onChange={(event) => setPassword(event.target.value)} autoComplete="current-password" className="mt-2 w-full rounded-[2px] border border-input bg-card px-4 py-3 outline-none focus:border-foreground focus:ring-2 focus:ring-accent/50" data-testid="input-admin-password" /></label>{error && <p className="border-l-2 border-destructive bg-destructive/10 px-3 py-2 text-sm text-destructive" role="alert">{error}</p>}<Button className="mt-3 w-full" type="submit" disabled={login.isPending}>{login.isPending ? <><Loader2 className="h-4 w-4 animate-spin" /> Checking access</> : <>Enter workspace <ArrowRight className="h-4 w-4" /></>}</Button></form><Link href="/" className="mt-8 block text-center text-sm text-muted-foreground underline underline-offset-4">Back to Folio</Link></div></div></main>;
-}
-
-function Steps({ current }: { current: number }) { const steps = ['Upload', 'Review', 'Direction', 'Template', 'Preview']; return <div className="flex w-full items-center justify-between gap-2" aria-label={`Onboarding step ${current + 1} of ${steps.length}`}>{steps.map((s, i) => <div key={s} className="flex flex-1 items-center gap-2"><div className={`grid h-8 w-8 shrink-0 place-items-center rounded-full font-mono-ui text-[10px] transition-colors ${i <= current ? 'bg-primary text-primary-foreground' : 'border border-border text-muted-foreground'}`}>{i < current ? <Check className="h-3.5 w-3.5" /> : `0${i + 1}`}</div><span className={`hidden text-[11px] font-semibold sm:block ${i === current ? 'text-foreground' : 'text-muted-foreground'}`}>{s}</span>{i < steps.length - 1 && <div className={`h-px flex-1 ${i < current ? 'bg-primary' : 'bg-border'}`} />}</div>)}</div>; }
-
-function OnboardingLayout({ current, children, title, eyebrow }: any) { return <main className="grain min-h-[100dvh] bg-background"><header className="flex items-center justify-between border-b border-border px-5 py-5 lg:px-10"><Brand /><Link href="/dashboard" data-testid="link-skip-onboarding" className="text-sm text-muted-foreground hover:text-foreground">Save and exit</Link></header><div className="mx-auto max-w-5xl px-5 py-10 lg:px-8 lg:py-16"><Steps current={current} /><div className="mt-16 max-w-2xl animate-rise"><p className="flex items-center gap-3 font-mono-ui text-[11px] uppercase tracking-[.22em] text-muted-foreground"><span className="h-px w-8 bg-accent" />{eyebrow}</p><h1 className="mt-5 font-display text-5xl leading-[.95] sm:text-6xl">{title}</h1></div>{children}</div></main>; }
-
-function UploadPage() { const [file, setFile] = useState<File | null>(null); const parse = useParseResume(); const [, setLocation] = useLocation(); const submit = () => file && parse.mutate({ data: { fileName: file.name, mimeType: file.type, fileSize: file.size } }, { onSuccess: (result: any) => { saveOnboardingDraft({ fileName: result.fileName, content: result.extracted, warnings: result.warnings }); setLocation('/onboarding/details'); } }); return <OnboardingLayout current={0} eyebrow="Step 01 / Begin with what you have" title="Bring your resume. We’ll find the story."><div className="mt-12 max-w-2xl"><label htmlFor="resume-file" className={`group flex min-h-[260px] cursor-pointer flex-col items-center justify-center border border-dashed p-8 text-center transition-colors ${file ? 'border-accent bg-accent/10' : 'border-border bg-card hover:border-foreground'}`} data-testid="dropzone-resume"><input id="resume-file" type="file" accept=".pdf,.doc,.docx" className="sr-only" onChange={(e) => setFile(e.target.files?.[0] || null)} data-testid="input-resume-file" />{file ? <><Check className="h-8 w-8 text-accent" /><p className="mt-5 font-semibold">{file.name}</p><p className="mt-2 text-sm text-muted-foreground">Ready to read · {(file.size / 1024 / 1024).toFixed(1)} MB</p></> : <><Upload className="h-8 w-8 text-muted-foreground transition-transform group-hover:-translate-y-1" /><p className="mt-5 font-semibold">Drop your resume here</p><p className="mt-2 text-sm text-muted-foreground">PDF, DOC, or DOCX · up to 10 MB</p><span className="mt-6 border border-border px-4 py-2 text-xs font-semibold">Browse files</span></>}</label>{parse.isError && <p className="mt-4 text-sm text-destructive">We couldn't read that file. Try again or choose another format.</p>}<div className="mt-8 flex items-center justify-between"><p className="flex items-center gap-2 text-xs text-muted-foreground"><ShieldCheck className="h-4 w-4 text-accent" /> Private by default</p><Button onClick={submit} disabled={!file || parse.isPending} data-testid="button-parse-resume">{parse.isPending ? <><Loader2 className="h-4 w-4 animate-spin" /> Reading your experience</> : <>Continue <ArrowRight className="h-4 w-4" /></>}</Button></div></div></OnboardingLayout>; }
-
-function DetailsPage() { const draft = readOnboardingDraft(); const [name, setName] = useState(draft.content?.personalInfo?.name || ''); const [headline, setHeadline] = useState(draft.content?.personalInfo?.headline || ''); const [summary, setSummary] = useState(draft.content?.personalInfo?.summary || ''); const continueReview = () => { const content = draft.content || blankContent; saveOnboardingDraft({ content: { ...content, personalInfo: { ...content.personalInfo, name, headline, summary } } }); }; return <OnboardingLayout current={1} eyebrow="Step 02 / Review the first draft" title="Review what we found."><div className="mt-12 max-w-3xl"><div className="border border-border bg-card p-6 sm:p-8"><div className="flex items-start justify-between"><div><p className="font-mono-ui text-[10px] uppercase tracking-widest text-muted-foreground">Personal introduction</p><h2 className="mt-3 font-display text-3xl">Keep what sounds like you.</h2></div><Pencil className="h-4 w-4 text-muted-foreground" /></div>{draft.warnings?.length > 0 && <div className="mt-6 border-l-2 border-accent bg-accent/10 p-4 text-sm leading-6 text-muted-foreground">{draft.warnings[0]}</div>}<div className="mt-8 grid gap-5 sm:grid-cols-2"><label className="text-sm font-semibold">Name<input value={name} onChange={e => setName(e.target.value)} className="mt-2 w-full border-b border-border bg-transparent py-2 outline-none focus:border-foreground" data-testid="input-review-name" /></label><label className="text-sm font-semibold">Headline<input value={headline} onChange={e => setHeadline(e.target.value)} className="mt-2 w-full border-b border-border bg-transparent py-2 outline-none focus:border-foreground" data-testid="input-review-headline" /></label></div><label className="mt-6 block text-sm font-semibold">Summary<textarea value={summary} onChange={e => setSummary(e.target.value)} rows={4} className="mt-2 w-full resize-none border border-border bg-background p-3 text-sm leading-6 outline-none focus:border-foreground" data-testid="input-review-summary" /></label></div><div className="mt-8 flex justify-end"><Link href="/onboarding/profession" onClick={continueReview} data-testid="link-continue-review" className="inline-flex items-center gap-2 rounded-md bg-primary px-5 py-3 font-semibold text-primary-foreground">Looks good <ArrowRight className="h-4 w-4" /></Link></div></div></OnboardingLayout>; }
-
-function ProfessionPage() { const draft = readOnboardingDraft(); const [profession, setProfession] = useState(draft.profession || 'Software Developer'); const [purpose, setPurpose] = useState(draft.purpose || 'Job Search'); const saveDirection = () => saveOnboardingDraft({ profession, purpose }); return <OnboardingLayout current={2} eyebrow="Step 03 / Give the work a direction" title="What do you want this portfolio to do?"><div className="mt-12 max-w-2xl space-y-7"><label className="block text-sm font-semibold">I am a <select value={profession} onChange={e => setProfession(e.target.value)} className="mt-2 w-full rounded-md border border-input bg-card px-4 py-3 outline-none" data-testid="select-profession"><option>Software Developer</option><option>Product Manager</option><option>UI/UX Designer</option><option>Writer</option><option>Photographer</option><option>Consultant</option></select></label><div><p className="text-sm font-semibold">I want this portfolio to help me</p><div className="mt-3 grid gap-3 sm:grid-cols-2">{['Job Search', 'Freelancing', 'Personal Branding', 'Consulting', 'Showcase Projects', 'Networking'].map(x => <button key={x} onClick={() => setPurpose(x)} className={`border p-4 text-left text-sm ${purpose === x ? 'border-foreground bg-secondary' : 'border-border bg-card'}`} data-testid={`button-purpose-${x.toLowerCase().replaceAll(' ', '-')}`}>{x}{purpose === x && <Check className="float-right h-4 w-4 text-accent" />}</button>)}</div></div><div className="flex justify-end pt-2"><Link href="/onboarding/templates" onClick={saveDirection} data-testid="link-continue-profession" className="inline-flex items-center gap-2 rounded-md bg-primary px-5 py-3 font-semibold text-primary-foreground">Find my format <ArrowRight className="h-4 w-4" /></Link></div></div></OnboardingLayout>; }
-
-function PreviewPage() { const create = useCreatePortfolio(); const { data: current } = useGetCurrentPortfolio({ query: { queryKey: getGetCurrentPortfolioQueryKey() } }); const update = useUpdatePortfolio(); const publish = usePublishPortfolio(); const [, setLocation] = useLocation(); const draft = readOnboardingDraft(); const portfolio: any = current || { id: '', slug: 'your-portfolio', profession: draft.profession || 'Software Developer', purpose: draft.purpose || 'Job Search', templateId: draft.templateId || 'clean-professional', status: 'draft', content: draft.content || blankContent, views: 0 }; const content = draft.content || portfolio.content || blankContent; const profession = draft.profession || portfolio.profession; const purpose = draft.purpose || portfolio.purpose; const templateId = draft.templateId || portfolio.templateId; const createOrPublish = () => { const done = (p: any) => publish.mutate({ id: p.id }, { onSuccess: () => { sessionStorage.removeItem('folio-onboarding'); setLocation('/dashboard/portfolio'); } }); if (!portfolio.id) create.mutate({ data: { profession, purpose, templateId, content } }, { onSuccess: done }); else update.mutate({ id: portfolio.id, data: { profession, purpose, templateId, content } }, { onSuccess: done }); }; return <OnboardingLayout current={4} eyebrow="Step 05 / Nearly there" title="A first look at your public portfolio."><div className="mt-12 grid gap-8 lg:grid-cols-[1fr_300px]"><div className="overflow-hidden border border-border bg-card shadow-xl"><div className="border-b border-border bg-secondary px-5 py-3 font-mono-ui text-[10px] uppercase tracking-widest text-muted-foreground">folio.site / {portfolio.slug}</div><div className="p-8 sm:p-12"><p className="font-mono-ui text-[10px] uppercase tracking-widest text-muted-foreground">About</p><h2 className="mt-8 font-display text-5xl leading-none">{content.personalInfo.name || 'Your name'}</h2><p className="mt-3 text-lg text-muted-foreground">{content.personalInfo.headline || 'Your professional headline'}</p><div className="mt-12 border-t border-border pt-5 text-sm leading-7 text-muted-foreground">{content.personalInfo.summary || 'Add a short introduction so people understand the work you want to be known for.'}</div><div className="mt-12 grid grid-cols-2 gap-4">{content.projects.slice(0, 2).map((p: any) => <div key={p.id} className="h-28 bg-primary p-4 text-primary-foreground"><p className="font-display text-xl">{p.name}</p><p className="mt-6 font-mono-ui text-[9px] uppercase tracking-widest text-accent">Selected work</p></div>)}</div></div></div><div className="h-fit border border-border bg-card p-6"><p className="font-mono-ui text-[10px] uppercase tracking-widest">Ready when you are</p><h3 className="mt-4 font-display text-2xl">Make it official.</h3><p className="mt-3 text-sm leading-6 text-muted-foreground">Publish now and share your new link with the world.</p><Button className="mt-6 w-full" onClick={createOrPublish} disabled={create.isPending || update.isPending || publish.isPending} data-testid="button-publish-onboarding">{create.isPending || update.isPending || publish.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Rocket className="h-4 w-4" />} Publish portfolio</Button><p className="mt-4 text-center text-[11px] text-muted-foreground"><Lock className="mr-1 inline h-3 w-3" /> You can unpublish anytime</p></div></div></OnboardingLayout>; }
-
-const dashLinks = [{ href: '/dashboard', label: 'Overview', icon: LayoutDashboard }, { href: '/dashboard/portfolio', label: 'Portfolio', icon: Globe2 }, { href: '/dashboard/content', label: 'Content', icon: FileText }, { href: '/dashboard/templates', label: 'Template', icon: Layers3 }, { href: '/dashboard/appearance', label: 'Appearance', icon: Palette }, { href: '/dashboard/domain', label: 'Domain', icon: Link2 }, { href: '/dashboard/analytics', label: 'Analytics', icon: BarChart3 }];
-function DashboardShell({ children }: { children: ReactNode }) { const [open, setOpen] = useState(false); const [location] = useLocation(); const { portfolio } = usePortfolioData(); const name = portfolio.content?.personalInfo?.name || 'Your workspace'; const initials = name.split(' ').map((part: string) => part[0]).join('').slice(0, 2).toUpperCase(); return <div className="min-h-[100dvh] bg-background"><aside className={`fixed inset-y-0 left-0 z-30 w-64 bg-primary p-6 text-primary-foreground shadow-2xl transition-transform lg:translate-x-0 ${open ? 'translate-x-0' : '-translate-x-full'}`}><div className="flex items-center justify-between"><Brand light /><button onClick={() => setOpen(false)} className="lg:hidden" aria-label="Close workspace navigation" data-testid="button-close-sidebar"><X className="h-5 w-5" /></button></div><p className="mb-4 mt-12 font-mono-ui text-[9px] uppercase tracking-widest text-primary-foreground/40">Workspace</p><nav className="space-y-1">{dashLinks.map(({ href, label, icon: Icon }) => <Link key={href} href={href} onClick={() => setOpen(false)} data-testid={`link-sidebar-${label.toLowerCase()}`} className={`flex items-center gap-3 rounded-[2px] px-3 py-2.5 text-sm ${location === href ? 'bg-accent text-primary' : 'text-primary-foreground/65 hover:bg-primary-foreground/10 hover:text-primary-foreground'}`}><Icon className="h-4 w-4" />{label}</Link>)}</nav><div className="absolute bottom-6 left-6 right-6 border-t border-primary-foreground/15 pt-5"><Link href="/dashboard/settings" data-testid="link-sidebar-settings" className="flex items-center gap-3 px-3 py-2.5 text-sm text-primary-foreground/65 hover:text-primary-foreground"><Settings className="h-4 w-4" /> Settings</Link><div className="mt-5 flex items-center gap-3 border-t border-primary-foreground/10 pt-5"><div className="grid h-8 w-8 place-items-center rounded-full bg-accent text-xs font-bold text-primary">{initials}</div><div><p className="text-xs font-semibold">{name}</p><p className="text-[10px] text-primary-foreground/45">Free plan</p></div></div></div></aside>{open && <button className="fixed inset-0 z-20 bg-primary/30 backdrop-blur-sm lg:hidden" onClick={() => setOpen(false)} aria-label="Close navigation overlay" data-testid="button-sidebar-overlay" />}<div className="lg:pl-64"><header className="sticky top-0 z-10 flex h-[73px] items-center justify-between border-b border-border bg-background/90 px-5 backdrop-blur lg:px-10"><button className="lg:hidden" onClick={() => setOpen(true)} aria-label="Open workspace navigation" data-testid="button-open-sidebar"><Menu className="h-5 w-5" /></button><div className="hidden font-mono-ui text-[10px] uppercase tracking-widest text-muted-foreground lg:block">Workspace / {name}</div><div className="ml-auto flex items-center gap-3"><Link href={`/p/${portfolio.slug}`} target="_blank" data-testid="link-view-live" className="hidden items-center gap-2 text-sm font-semibold text-muted-foreground hover:text-foreground sm:flex">View live <ExternalLink className="h-3.5 w-3.5" /></Link><div className="grid h-8 w-8 place-items-center rounded-full bg-accent text-xs font-bold text-primary">{initials}</div></div></header><div className="p-5 lg:p-10">{children}</div></div></div>; }
-
-function usePortfolioData() { const q = useGetCurrentPortfolio({ query: { queryKey: getGetCurrentPortfolioQueryKey() } }); const portfolio: any = q.data || { id: 'demo', slug: 'maya-chen', profession: 'Product designer', purpose: 'Find my next role', templateId: 'fieldnotes', status: 'published', content: sampleContent, views: 1248, updatedAt: new Date().toISOString(), publishedAt: new Date().toISOString() }; return { ...q, portfolio }; }
-function DashboardHome() { const { portfolio } = usePortfolioData(); const name = portfolio.content?.personalInfo?.name || 'there'; return <DashboardShell><div className="mx-auto max-w-6xl"><div className="flex flex-col justify-between gap-5 sm:flex-row sm:items-end"><div><p className="font-mono-ui text-[10px] uppercase tracking-widest text-muted-foreground">Your workspace</p><h1 className="mt-3 font-display text-5xl leading-none">Good morning, {name.split(' ')[0]}.</h1><p className="mt-4 text-muted-foreground">Your portfolio is looking good. Here is the shape of things.</p></div><Link href="/dashboard/content" data-testid="link-dashboard-edit" className="inline-flex items-center gap-2 self-start rounded-md bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground sm:self-auto">Edit portfolio <Pencil className="h-4 w-4" /></Link></div><div className="mt-10 grid gap-4 md:grid-cols-[1.2fr_.8fr_.8fr]"><div className="bg-primary p-6 text-primary-foreground"><div className="flex items-center justify-between"><p className="font-mono-ui text-[10px] uppercase tracking-widest text-accent">Live portfolio</p><span className="flex items-center gap-1.5 text-xs text-primary-foreground/60"><span className="h-1.5 w-1.5 rounded-full bg-accent" /> {portfolio.status === 'published' ? 'Published' : 'Draft'}</span></div><p className="mt-12 font-display text-3xl">{portfolio.slug}.folio.site</p><Link href={`/p/${portfolio.slug}`} target="_blank" data-testid="link-dashboard-portfolio" className="mt-5 inline-flex items-center gap-2 text-xs text-primary-foreground/60 underline underline-offset-4">Open your site <ExternalLink className="h-3 w-3" /></Link></div><StatCard label="Total views" value={portfolio.views.toLocaleString()} change="Live count" /><StatCard label="Last updated" value={new Date(portfolio.updatedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} change="All caught up" /></div><div className="mt-10 grid gap-5 lg:grid-cols-[1.25fr_.75fr]"><div className="border border-border bg-card p-6"><div className="flex items-center justify-between"><h2 className="font-display text-2xl">Your progress</h2><span className="font-mono-ui text-xs text-muted-foreground">4 / 5</span></div><div className="mt-6 h-2 bg-secondary"><div className="h-2 w-[80%] bg-accent" /></div><div className="mt-6 space-y-3">{[['Add a profile photo', 'Make your introduction personal'], ['Add your social links', 'Help people find more of your work'], ['Share your portfolio', 'Your best work deserves an audience']].map(([a,b], i) => <div className="flex items-center gap-3 border-t border-border py-3" key={a}><div className={`grid h-7 w-7 place-items-center rounded-full ${i < 2 ? 'bg-accent text-primary' : 'border border-border text-muted-foreground'}`}>{i < 2 ? <Check className="h-3.5 w-3.5" /> : <span className="text-xs">{i + 1}</span>}</div><div><p className="text-sm font-semibold">{a}</p><p className="text-xs text-muted-foreground">{b}</p></div>{i === 2 && <ChevronRight className="ml-auto h-4 w-4 text-muted-foreground" />}</div>)}</div></div><div className="border border-border bg-card p-6"><div className="flex items-center gap-2"><Zap className="h-4 w-4 text-accent" /><h2 className="font-display text-2xl">A little note</h2></div><p className="mt-6 text-sm leading-7 text-muted-foreground">Your headline is the first thing a new visitor sees. Try making it specific to the kind of work you want more of.</p><Link href="/dashboard/content" data-testid="link-dashboard-note" className="mt-7 inline-flex items-center gap-2 text-sm font-semibold underline decoration-accent decoration-2 underline-offset-4">Review your content <ArrowRight className="h-4 w-4" /></Link></div></div></div></DashboardShell>; }
-function StatCard({ label, value, change }: any) { return <div className="border border-border bg-card p-6"><p className="font-mono-ui text-[10px] uppercase tracking-widest text-muted-foreground">{label}</p><p className="mt-10 font-display text-4xl">{value}</p><p className="mt-2 text-xs text-accent">{change}</p></div>; }
-
-function DashboardPage({ section }: { section: string }) { const { portfolio } = usePortfolioData(); const [saved, setSaved] = useState(false); const [tab, setTab] = useState('Profile'); const [editedContent, setEditedContent] = useState<any>(null); const update = useUpdatePortfolio(); const content = editedContent || portfolio.content || sampleContent; const title = section === 'portfolio' ? 'Your portfolio' : section === 'content' ? 'Shape the story' : section === 'templates' ? 'Find a new frame' : section === 'appearance' ? 'Set the atmosphere' : section === 'domain' ? 'Your address' : section === 'analytics' ? 'See who is looking' : section === 'billing' ? 'Plan and billing' : 'Settings'; const save = () => { if (portfolio.id !== 'demo') update.mutate({ id: portfolio.id, data: { content } }, { onSuccess: () => setSaved(true) }); else setSaved(true); }; return <DashboardShell><div className="mx-auto max-w-6xl"><div className="flex items-start justify-between gap-5"><div><p className="font-mono-ui text-[10px] uppercase tracking-widest text-muted-foreground">Workspace / {section}</p><h1 className="mt-3 font-display text-5xl leading-none">{title}</h1><p className="mt-4 max-w-xl text-muted-foreground">{section === 'content' ? 'A good portfolio sounds like a person. Keep the useful parts, cut the filler.' : 'The details that make your work easier to find and easier to remember.'}</p></div>{['content', 'appearance'].includes(section) && <Button onClick={save} disabled={update.isPending} data-testid="button-save-changes">{update.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : saved ? <><Check className="h-4 w-4" /> Saved</> : 'Save changes'}</Button>}</div>{section === 'content' ? <ContentEditor content={content} setContent={setEditedContent} tab={tab} setTab={setTab} /> : section === 'templates' ? <TemplatesPanel selected={portfolio.templateId} portfolio={portfolio} /> : section === 'appearance' ? <AppearancePanel /> : section === 'analytics' ? <AnalyticsPanel /> : section === 'domain' ? <DomainPanel slug={portfolio.slug} /> : section === 'portfolio' ? <PortfolioPanel portfolio={portfolio} /> : <GenericPanel section={section} />}</div></DashboardShell>; }
-function ContentEditor({ content, setContent, tab, setTab }: any) { const tabs = ['Profile', 'Experience', 'Projects', 'Skills']; const updatePersonal = (field: string, value: string) => setContent({ ...content, personalInfo: { ...content.personalInfo, [field]: value } }); const addSkill = () => { const skill = window.prompt('Add a skill'); if (skill?.trim()) setContent({ ...content, skills: [...content.skills, skill.trim()] }); }; return <div className="mt-10 grid gap-5 lg:grid-cols-[190px_1fr]"><div className="flex gap-2 overflow-auto lg:block lg:space-y-1">{tabs.map(t => <button key={t} onClick={() => setTab(t)} className={`whitespace-nowrap rounded-[2px] px-3 py-2 text-left text-sm ${tab === t ? 'bg-secondary font-semibold' : 'text-muted-foreground hover:text-foreground'}`} data-testid={`button-content-tab-${t.toLowerCase()}`}>{t}</button>)}</div><div className="border border-border bg-card p-6 sm:p-8">{tab === 'Profile' && <><SectionHeading label="Personal introduction" title="What should people know first?" /><div className="mt-8 grid gap-5 sm:grid-cols-2"><Field label="Name" value={content.personalInfo.name} onChange={(value: string) => updatePersonal('name', value)} /><Field label="Headline" value={content.personalInfo.headline} onChange={(value: string) => updatePersonal('headline', value)} /><Field label="Email" value={content.personalInfo.email} onChange={(value: string) => updatePersonal('email', value)} /><Field label="Location" value={content.personalInfo.location} onChange={(value: string) => updatePersonal('location', value)} /></div><Field label="Summary" value={content.personalInfo.summary} onChange={(value: string) => updatePersonal('summary', value)} area /></>}{tab === 'Experience' && <><SectionHeading label="The record" title="Where you have done the work." />{content.experience.map((e: any) => <div key={e.id} className="border-t border-border py-5"><div className="flex justify-between"><div><p className="font-semibold">{e.role}</p><p className="mt-1 text-sm text-muted-foreground">{e.company} · {e.period}</p></div><Pencil className="h-4 w-4 text-muted-foreground" /></div><p className="mt-3 text-sm leading-6 text-muted-foreground">{e.description}</p></div>)}<Button variant="outline" className="mt-3" onClick={() => window.alert('Experience editing is available from the imported draft.')} data-testid="button-add-experience"><Plus className="h-4 w-4" /> Add experience</Button></>}{tab === 'Projects' && <><SectionHeading label="Selected work" title="Give the good stuff a little context." /><div className="mt-8 grid gap-4 sm:grid-cols-2">{content.projects.map((p: any) => <div className="border border-border p-5 transition-transform hover:-translate-y-1" key={p.id}><div className="mb-8 h-20 bg-secondary" /><p className="font-display text-2xl">{p.name}</p><p className="mt-2 text-sm leading-6 text-muted-foreground">{p.description}</p><p className="mt-5 font-mono-ui text-[9px] uppercase tracking-widest text-accent">{p.technologies.join(' / ')}</p></div>)}</div></>}{tab === 'Skills' && <><SectionHeading label="The toolkit" title="The things you are good at." /><div className="mt-8 flex flex-wrap gap-2">{content.skills.map((s: string) => <span key={s} className="border border-border px-3 py-2 text-sm">{s}</span>)}<button onClick={addSkill} className="border border-dashed border-border px-3 py-2 text-sm text-muted-foreground hover:border-foreground" data-testid="button-add-skill"><Plus className="mr-1 inline h-3 w-3" /> Add skill</button></div></>}</div></div>; }
-function SectionHeading({ label, title }: any) { return <div><p className="font-mono-ui text-[10px] uppercase tracking-widest text-muted-foreground">{label}</p><h2 className="mt-3 font-display text-3xl">{title}</h2></div>; }
-function Field({ label, value, onChange, area }: any) { return <label className={`block text-sm font-semibold ${area ? 'mt-6' : ''}`}>{label}{area ? <textarea value={value} onChange={(event) => onChange?.(event.target.value)} rows={5} className="mt-2 w-full resize-none border border-border bg-background p-3 text-sm leading-6 outline-none focus:border-foreground focus:ring-2 focus:ring-accent/40" data-testid={`input-content-${label.toLowerCase()}`} /> : <input value={value} onChange={(event) => onChange?.(event.target.value)} className="mt-2 w-full border-b border-border bg-transparent py-2 outline-none focus:border-foreground focus:ring-2 focus:ring-accent/40" data-testid={`input-content-${label.toLowerCase()}`} />}</label>; }
-function PortfolioPanel({ portfolio }: any) { const unpublish = useUnpublishPortfolio(); const [copied, setCopied] = useState(false); const copy = () => { void navigator.clipboard?.writeText(`${window.location.origin}/p/${portfolio.slug}`); setCopied(true); }; return <div className="mt-10 grid gap-5 lg:grid-cols-[1.2fr_.8fr]"><div className="border border-border bg-card p-7"><div className="flex items-center justify-between"><span className="flex items-center gap-2 text-sm font-semibold"><span className="h-2 w-2 rounded-full bg-accent" /> {portfolio.status === 'published' ? 'Published' : 'Draft'}</span><span className="font-mono-ui text-xs text-muted-foreground">Updated recently</span></div><h2 className="mt-12 font-display text-4xl">{portfolio.slug}.folio.site</h2><p className="mt-3 text-sm text-muted-foreground">Your public link is ready to share.</p><div className="mt-8 flex flex-wrap gap-3"><Button variant="outline" onClick={copy} data-testid="button-copy-link"><Copy className="h-4 w-4" /> {copied ? 'Copied' : 'Copy link'}</Button><Link href={`/p/${portfolio.slug}`} target="_blank" data-testid="link-open-portfolio" className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground">Open portfolio <ExternalLink className="h-4 w-4" /></Link>{portfolio.status === 'published' && portfolio.id !== 'demo' && <Button variant="ghost" onClick={() => unpublish.mutate({ id: portfolio.id })} disabled={unpublish.isPending} data-testid="button-unpublish">Unpublish</Button>}</div></div><div className="border border-border bg-secondary p-7"><p className="font-mono-ui text-[10px] uppercase tracking-widest text-muted-foreground">Next useful step</p><h3 className="mt-5 font-display text-3xl">Make the link yours.</h3><p className="mt-3 text-sm leading-6 text-muted-foreground">Connect a custom domain to turn your Folio into a permanent home.</p><Link href="/dashboard/domain" data-testid="link-portfolio-domain" className="mt-7 inline-flex items-center gap-2 text-sm font-semibold underline decoration-accent decoration-2 underline-offset-4">Explore domains <ArrowRight className="h-4 w-4" /></Link></div></div>; }
-function TemplatesPanel({ selected, portfolio }: any) { const { data } = useListTemplates({ query: { queryKey: getListTemplatesQueryKey() } }); const update = useUpdatePortfolio(); const [chosen, setChosen] = useState(selected); const ts: any[] = (data as any)?.length ? data as any[] : [{ id: 'fieldnotes', name: 'Field Notes', category: 'Editorial', description: 'For thoughtful generalists.', premium: false, accent: '#D5B895', layout: 'Open' }, { id: 'ledger', name: 'Ledger', category: 'Structured', description: 'Quiet confidence.', premium: true, accent: '#A9B8B2', layout: 'Columnar' }]; const choose = (template: any) => { setChosen(template.id); if (portfolio.id !== 'demo') update.mutate({ id: portfolio.id, data: { templateId: template.id } }); }; return <div className="mt-10 grid gap-5 sm:grid-cols-2">{ts.map(t => <TemplateCard key={t.id} template={t} selected={chosen === t.id} onChoose={choose} />)}</div>; }
-function AppearancePanel() { const [accent, setAccent] = useState('ochre'); const colors: any = { ochre: '#D5B895', sage: '#A9B8B2', lilac: '#C5B9CF', coral: '#D48D76' }; return <div className="mt-10 grid gap-5 lg:grid-cols-[1fr_.9fr]"><div className="border border-border bg-card p-7"><SectionHeading label="Visual direction" title="Set the atmosphere." /><p className="mt-8 text-sm font-semibold">Accent color</p><div className="mt-4 flex gap-3">{Object.entries(colors).map(([name, color]) => <button key={name} aria-label={name} onClick={() => setAccent(name)} className={`h-12 w-12 rounded-full border-4 ${accent === name ? 'border-foreground' : 'border-transparent'}`} style={{ backgroundColor: String(color) }} data-testid={`button-accent-${name}`} />)}</div><p className="mt-8 text-sm font-semibold">Type scale</p><div className="mt-3 grid grid-cols-2 gap-3"><button className="border border-foreground bg-secondary p-4 text-left font-display text-xl" data-testid="button-type-editorial">Editorial <span className="block font-sans text-[10px] text-muted-foreground">Fraunces / DM Sans</span></button><button className="border border-border p-4 text-left text-xl" data-testid="button-type-clean">Clean <span className="block text-[10px] text-muted-foreground">DM Sans / DM Mono</span></button></div></div><div className="border border-border bg-primary p-7 text-primary-foreground"><p className="font-mono-ui text-[10px] uppercase tracking-widest text-accent">Live preview</p><div className="mt-14 border-t border-primary-foreground/20 pt-5"><div className="h-3 w-3 rounded-full" style={{ background: colors[accent] }} /><p className="mt-8 font-display text-4xl">Maya Chen</p><p className="mt-2 text-sm text-primary-foreground/60">Product designer shaping quieter, better tools.</p></div></div></div>; }
-function AnalyticsPanel() { return <div className="mt-10 border border-border bg-card p-7"><div className="flex items-end justify-between"><div><p className="font-mono-ui text-[10px] uppercase tracking-widest text-muted-foreground">Last 30 days</p><p className="mt-4 font-display text-5xl">1,248</p><p className="mt-2 text-sm text-accent">+18.4% from last month</p></div><select className="border border-border bg-background px-3 py-2 text-xs" data-testid="select-analytics-range"><option>Last 30 days</option><option>Last 90 days</option></select></div><div className="mt-12 flex h-48 items-end gap-2 border-b border-border">{[34,45,32,56,43,68,58,76,65,88,72,95,84,100].map((h, i) => <div key={i} className="flex-1 bg-accent/70 hover:bg-accent" style={{ height: `${h}%` }} />)}</div><div className="mt-5 grid grid-cols-3 gap-4 text-sm"><div><p className="text-muted-foreground">Top referrer</p><p className="mt-2 font-semibold">LinkedIn</p></div><div><p className="text-muted-foreground">Avg. read</p><p className="mt-2 font-semibold">2m 14s</p></div><div><p className="text-muted-foreground">Most viewed</p><p className="mt-2 font-semibold">About</p></div></div></div>; }
-function DomainPanel({ slug }: any) { return <div className="mt-10 max-w-2xl border border-border bg-card p-7"><SectionHeading label="Custom domain" title="A home that is yours." /><label className="mt-9 block text-sm font-semibold">Your current address<div className="mt-2 flex items-center border border-border bg-secondary"><span className="flex-1 px-4 py-3 font-mono-ui text-sm">{slug}.folio.site</span><Check className="mr-4 h-4 w-4 text-accent" /></div></label><div className="my-8 border-t border-border" /><p className="text-sm leading-6 text-muted-foreground">Connect a domain you already own, or search for a new one. Custom domains are included with Studio.</p><button className="mt-6 inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground" data-testid="button-connect-domain"><Link2 className="h-4 w-4" /> Connect a domain</button></div>; }
-function GenericPanel({ section }: any) { return <div className="mt-10 max-w-2xl border border-border bg-card p-7"><SectionHeading label={section === 'billing' ? 'Studio plan' : 'Account'} title={section === 'billing' ? 'Keep the good things going.' : 'The quiet details.'} /><div className="mt-8 space-y-4">{['Email notifications', 'Weekly portfolio notes', 'Public profile visibility'].map((x, i) => <div className="flex items-center justify-between border-t border-border py-4" key={x}><div><p className="text-sm font-semibold">{x}</p><p className="mt-1 text-xs text-muted-foreground">{i === 0 ? 'A note when something needs your attention.' : 'A small preference for your workspace.'}</p></div><div className="h-5 w-9 rounded-full bg-accent p-0.5"><div className="ml-auto h-4 w-4 rounded-full bg-primary" /></div></div>)}</div><Button variant="outline" className="mt-6" data-testid="button-manage-plan">{section === 'billing' ? 'Manage plan' : 'Save settings'}</Button></div>; }
-
-function PublicPortfolio() { const { slug = '' } = useParams<{ slug: string }>(); const { data, isLoading, isError } = useGetPublicPortfolio(slug, { query: { queryKey: getGetPublicPortfolioQueryKey(slug) } }); const p: any = data || { content: sampleContent, slug }; if (isLoading) return <div className="min-h-[100dvh] bg-background p-5"><div className="mx-auto max-w-6xl animate-pulse"><div className="h-8 w-24 bg-secondary" /><div className="mt-24 h-20 w-3/4 bg-secondary" /><div className="mt-5 h-5 w-1/2 bg-secondary" /></div></div>; if (isError) return <div className="grid min-h-[100dvh] place-items-center bg-background p-6 text-center"><div><p className="font-mono-ui text-xs uppercase tracking-widest text-muted-foreground">404 / Not found</p><h1 className="mt-4 font-display text-5xl">This portfolio is elsewhere.</h1><Link href="/" className="mt-8 inline-flex text-sm font-semibold underline" data-testid="link-public-home">Back to Folio</Link></div></div>; const c = p.content || sampleContent; return <main className="grain min-h-[100dvh] bg-background"><header className="mx-auto flex max-w-6xl items-center justify-between border-b border-border px-5 py-7 lg:px-8"><Brand /><span className="font-mono-ui text-[10px] uppercase tracking-widest text-muted-foreground">Portfolio / {p.slug}</span></header><div className="mx-auto max-w-6xl px-5 pb-24 lg:px-8"><section className="relative grid gap-10 border-b border-border py-20 lg:grid-cols-[1fr_.7fr] lg:py-32"><div className="pointer-events-none absolute right-10 top-20 hidden h-48 w-48 rounded-full border border-accent/40 lg:block" /><div><p className="flex items-center gap-3 font-mono-ui text-[10px] uppercase tracking-widest text-muted-foreground"><span className="h-px w-8 bg-accent" />Hello, I’m</p><h1 className="mt-7 font-display text-7xl leading-[.86] tracking-tight sm:text-8xl">{c.personalInfo.name}</h1><p className="mt-9 max-w-md text-xl leading-8 text-muted-foreground">{c.personalInfo.headline}</p></div><div className="flex flex-col justify-end"><div className="ambient-orb h-36 w-36 rounded-full bg-accent/80 animate-float-slow" /><p className="mt-8 max-w-sm text-sm leading-7 text-muted-foreground">{c.personalInfo.summary}</p><p className="mt-6 font-mono-ui text-[10px] uppercase tracking-widest">{c.personalInfo.location}</p></div></section><section className="grid gap-12 border-b border-border py-20 lg:grid-cols-[.35fr_1fr]"><p className="font-mono-ui text-[10px] uppercase tracking-widest text-muted-foreground">Selected work</p><div className="grid gap-6 sm:grid-cols-2">{c.projects.map((x: any, i: number) => <article key={x.id} className="group"><div className={`relative flex h-56 items-end overflow-hidden p-6 transition-transform duration-500 group-hover:-translate-y-1 ${i % 2 ? 'bg-[#c6d0c8]' : 'bg-primary text-primary-foreground'}`}><span className={`absolute -right-8 -top-8 h-32 w-32 rounded-full border ${i % 2 ? 'border-primary/20' : 'border-accent/30'}`} /><p className="relative font-display text-3xl">{x.name}</p></div><p className="mt-4 text-sm leading-6 text-muted-foreground">{x.description}</p><p className="mt-3 font-mono-ui text-[9px] uppercase tracking-widest text-accent">{x.technologies.join(' / ')}</p></article>)}</div></section><section className="grid gap-12 py-20 lg:grid-cols-[.35fr_1fr]"><p className="font-mono-ui text-[10px] uppercase tracking-widest text-muted-foreground">Experience</p><div className="space-y-8">{c.experience.map((x: any) => <div className="grid gap-2 border-t border-border pt-5 sm:grid-cols-[.4fr_1fr]" key={x.id}><p className="font-mono-ui text-[10px] uppercase tracking-widest text-muted-foreground">{x.period}</p><div><h2 className="font-display text-3xl">{x.role}</h2><p className="mt-1 text-sm text-accent">{x.company}</p><p className="mt-4 max-w-lg text-sm leading-7 text-muted-foreground">{x.description}</p></div></div>)}</div></section><footer className="border-t border-border py-10"><p className="font-display text-3xl">Let’s make something clearer.</p><div className="mt-6 flex flex-wrap gap-5 text-sm font-semibold"><a href={`mailto:${c.personalInfo.email}`} data-testid="link-public-email">{c.personalInfo.email}</a>{c.socialLinks.linkedin && <a href={`https://${c.socialLinks.linkedin}`} data-testid="link-public-linkedin">LinkedIn <ExternalLink className="ml-1 inline h-3 w-3" /></a>}</div></footer></div></main>; }
-
-function Router() { const [location] = useLocation(); const dashboard = location.startsWith('/dashboard'); return <div key={location} className="page-enter"><ErrorBoundary resetKey={location}>{dashboard ? <Switch><Route path="/dashboard" component={DashboardHome} /><Route path="/dashboard/portfolio" component={() => <DashboardPage section="portfolio" />} /><Route path="/dashboard/content" component={() => <DashboardPage section="content" />} /><Route path="/dashboard/templates" component={() => <DashboardPage section="templates" />} /><Route path="/dashboard/appearance" component={() => <DashboardPage section="appearance" />} /><Route path="/dashboard/domain" component={() => <DashboardPage section="domain" />} /><Route path="/dashboard/analytics" component={() => <DashboardPage section="analytics" />} /><Route path="/dashboard/billing" component={() => <DashboardPage section="billing" />} /><Route path="/dashboard/settings" component={() => <DashboardPage section="settings" />} /><Route component={NotFound} /></Switch> : <Switch><Route path="/" component={Landing} /><Route path="/templates" component={() => <Templates />} /><Route path="/pricing" component={Pricing} /><Route path="/login" component={() => <Auth />} /><Route path="/signup" component={() => <Auth signup />} /><Route path="/admin" component={AdminPage} /><Route path="/onboarding" component={() => <OnboardingLayout current={0} eyebrow="A short guided setup" title="Five thoughtful minutes to a portfolio you can share."><div className="mt-12 grid gap-3 sm:grid-cols-2">{[['01', 'Upload your resume', 'We start with the experience you already have.'], ['02', 'Review the first draft', 'Keep what sounds like you.'], ['03', 'Choose your direction', 'Give the page a purpose.'], ['04', 'Pick a template', 'Find the right room for the work.'], ['05', 'Preview and publish', 'Send it out when it feels ready.']].map(([n,t,d]) => <Link href={n === '01' ? '/onboarding/upload' : n === '02' ? '/onboarding/details' : n === '03' ? '/onboarding/profession' : n === '04' ? '/onboarding/templates' : '/onboarding/preview'} key={n} data-testid={`link-onboarding-step-${n}`} className="group flex items-center gap-5 border border-border bg-card p-5 hover:-translate-y-0.5 hover:border-foreground"><span className="font-mono-ui text-xs text-accent">{n}</span><span className="flex-1"><strong className="block">{t}</strong><span className="mt-1 block text-sm text-muted-foreground">{d}</span></span><ArrowRight className="h-4 w-4 text-muted-foreground transition-transform group-hover:translate-x-1" /></Link>)}</div></OnboardingLayout>} /><Route path="/onboarding/upload" component={UploadPage} /><Route path="/onboarding/details" component={DetailsPage} /><Route path="/onboarding/profession" component={ProfessionPage} /><Route path="/onboarding/templates" component={() => <Templates onboarding />} /><Route path="/onboarding/preview" component={PreviewPage} /><Route path="/p/:slug" component={PublicPortfolio} /><Route component={NotFound} /></Switch>}</ErrorBoundary></div>; }
-
-function App() { return <QueryClientProvider client={queryClient}><TooltipProvider><WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, '')}><Router /></WouterRouter><Toaster /></TooltipProvider></QueryClientProvider>; }
 
 export default App;

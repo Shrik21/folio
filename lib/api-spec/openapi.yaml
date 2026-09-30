@@ -134,11 +134,30 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Portfolio"
+  /public/portfolios:
+    get:
+      operationId: listPublishedPortfolios
+      tags: [portfolios]
+      summary: List published portfolio slugs for sitemap generation
+      responses:
+        "200":
+          description: Published portfolios
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required: [slug, updatedAt]
+                  properties:
+                    slug: { type: string }
+                    updatedAt: { type: string }
+                    publishedAt: { type: ["string", "null"] }
   /public/portfolios/{slug}:
     get:
       operationId: getPublicPortfolio
       tags: [portfolios]
-      summary: View a published portfolio
+      summary: Read a published portfolio without incrementing views
       parameters:
         - name: slug
           in: path
@@ -152,6 +171,22 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Portfolio"
+        "404":
+          description: Portfolio not found
+  /public/portfolios/{slug}/views:
+    post:
+      operationId: recordPublicPortfolioView
+      tags: [portfolios]
+      summary: Record a public portfolio page view
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: View recorded
         "404":
           description: Portfolio not found
   /admin/session:
@@ -200,6 +235,18 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/AdminSession"
+  /admin/stats:
+    get:
+      operationId: getAdminStats
+      tags: [admin]
+      summary: Get admin dashboard statistics
+      responses:
+        "200":
+          description: Admin stats
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminStatsResponse"
   /resume/parse:
     post:
       operationId: parseResume
@@ -208,7 +255,7 @@ paths:
       requestBody:
         required: true
         content:
-          application/json:
+          multipart/form-data:
             schema:
               $ref: "#/components/schemas/ResumeParseInput"
       responses:
@@ -232,8 +279,11 @@ components:
       properties:
         status:
           type: string
+        geminiConfigured:
+          type: boolean
       required:
         - status
+        - geminiConfigured
     AdminLoginInput:
       type: object
       required: [username, password]
@@ -245,6 +295,46 @@ components:
       required: [authenticated]
       properties:
         authenticated: { type: boolean }
+    AdminStatsResponse:
+      type: object
+      required: [users, portfolios]
+      properties:
+        users:
+          type: object
+          required: [total, recent]
+          properties:
+            total: { type: integer }
+            recent:
+              type: array
+              items:
+                type: object
+                required: [id, name, provider, createdAt]
+                properties:
+                  id: { type: string }
+                  name: { type: string }
+                  email: { type: ["string", "null"] }
+                  provider: { type: string }
+                  createdAt: { type: string }
+        portfolios:
+          type: object
+          required: [total, published, drafts, totalViews, recent]
+          properties:
+            total: { type: integer }
+            published: { type: integer }
+            drafts: { type: integer }
+            totalViews: { type: integer }
+            recent:
+              type: array
+              items:
+                type: object
+                required: [id, slug, ownerId, status, views, updatedAt]
+                properties:
+                  id: { type: integer }
+                  slug: { type: string }
+                  ownerId: { type: string }
+                  status: { type: string }
+                  views: { type: integer }
+                  updatedAt: { type: string }
     PortfolioTemplate:
       type: object
       required: [id, name, category, description, premium, accent, layout]
@@ -362,11 +452,11 @@ components:
           $ref: "#/components/schemas/PortfolioContent"
     ResumeParseInput:
       type: object
-      required: [fileName, mimeType, fileSize]
+      required: [file]
       properties:
-        fileName: { type: string }
-        mimeType: { type: string }
-        fileSize: { type: integer, maximum: 10485760 }
+        file:
+          type: string
+          format: binary
     ResumeExtraction:
       type: object
       required: [fileName, extracted, warnings]

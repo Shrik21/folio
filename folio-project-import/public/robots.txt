@@ -1,0 +1,35 @@
+User-agent: *
+Allow: /
+Disallow: /login
+Disallow: /signup
+Disallow: /onboarding/
+Disallow: /dashboard/
+Disallow: /dashboard
+
+# Answer engines and legitimate search crawlers are welcome.
+User-agent: OAI-SearchBot
+Allow: /
+
+User-agent: ChatGPT-User
+Allow: /
+
+User-agent: PerplexityBot
+Allow: /
+
+User-agent: Googlebot
+Allow: /
+
+User-agent: Bingbot
+Allow: /
+
+User-agent: Twitterbot
+Allow: /
+
+User-agent: facebookexternalhit
+Allow: /
+
+# Model training permission is a separate decision from search discovery.
+User-agent: GPTBot
+Disallow: /
+
+Sitemap: /sitemap.xml

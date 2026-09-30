@@ -8,9 +8,15 @@
 
 export * from './adminLoginInput';
 export * from './adminSession';
+export * from './adminStatsResponse';
+export * from './adminStatsResponsePortfolios';
+export * from './adminStatsResponsePortfoliosRecentItem';
+export * from './adminStatsResponseUsers';
+export * from './adminStatsResponseUsersRecentItem';
 export * from './education';
 export * from './experience';
 export * from './healthStatus';
+export * from './listPublishedPortfolios200Item';
 export * from './personalInfo';
 export * from './portfolio';
 export * from './portfolioContent';

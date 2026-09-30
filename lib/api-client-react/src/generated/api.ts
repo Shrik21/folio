@@ -22,7 +22,9 @@ import type {
 import type {
   AdminLoginInput,
   AdminSession,
+  AdminStatsResponse,
   HealthStatus,
+  ListPublishedPortfolios200Item,
   Portfolio,
   PortfolioInput,
   PortfolioTemplate,
@@ -692,6 +694,83 @@ export const useUnpublishPortfolio = <TError = ErrorType<unknown>,
       return useMutation(getUnpublishPortfolioMutationOptions(options));
     }
 
+export const getListPublishedPortfoliosUrl = () => {
+
+
+
+
+  return `/api/public/portfolios`
+}
+
+/**
+ * @summary List published portfolio slugs for sitemap generation
+ */
+export const listPublishedPortfolios = async ( options?: Parameters<typeof customFetch>[1]): Promise<ListPublishedPortfolios200Item[]> => {
+
+  return customFetch<ListPublishedPortfolios200Item[]>(getListPublishedPortfoliosUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListPublishedPortfoliosQueryKey = () => {
+    return [
+    `/api/public/portfolios`
+    ] as const;
+    }
+
+
+export const getListPublishedPortfoliosQueryOptions = <TData = Awaited<ReturnType<typeof listPublishedPortfolios>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listPublishedPortfolios>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListPublishedPortfoliosQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listPublishedPortfolios>>> = ({ signal }) => listPublishedPortfolios({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listPublishedPortfolios>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListPublishedPortfoliosQueryResult = NonNullable<Awaited<ReturnType<typeof listPublishedPortfolios>>>
+export type ListPublishedPortfoliosQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List published portfolio slugs for sitemap generation
+ */
+
+export function useListPublishedPortfolios<TData = Awaited<ReturnType<typeof listPublishedPortfolios>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listPublishedPortfolios>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListPublishedPortfoliosQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
 export const getGetPublicPortfolioUrl = (slug: string,) => {
 
 
@@ -701,7 +780,7 @@ export const getGetPublicPortfolioUrl = (slug: string,) => {
 }
 
 /**
- * @summary View a published portfolio
+ * @summary Read a published portfolio without incrementing views
  */
 export const getPublicPortfolio = async (slug: string, options?: Parameters<typeof customFetch>[1]): Promise<Portfolio> => {
 
@@ -748,7 +827,7 @@ export type GetPublicPortfolioQueryError = ErrorType<void>
 
 
 /**
- * @summary View a published portfolio
+ * @summary Read a published portfolio without incrementing views
  */
 
 export function useGetPublicPortfolio<TData = Awaited<ReturnType<typeof getPublicPortfolio>>, TError = ErrorType<void>>(
@@ -768,6 +847,80 @@ export function useGetPublicPortfolio<TData = Awaited<ReturnType<typeof getPubli
 
 
 
+
+export const getRecordPublicPortfolioViewUrl = (slug: string,) => {
+
+
+
+
+  return `/api/public/portfolios/${slug}/views`
+}
+
+/**
+ * @summary Record a public portfolio page view
+ */
+export const recordPublicPortfolioView = async (slug: string, options?: Parameters<typeof customFetch>[1]): Promise<void> => {
+
+  return customFetch<void>(getRecordPublicPortfolioViewUrl(slug),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getRecordPublicPortfolioViewMutationKey = () => ['recordPublicPortfolioView'] as const;
+
+export const getRecordPublicPortfolioViewMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof recordPublicPortfolioView>>, TError,RecordPublicPortfolioViewMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof recordPublicPortfolioView>>, TError,RecordPublicPortfolioViewMutationVariables, TContext> => {
+
+const mutationKey = getRecordPublicPortfolioViewMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof recordPublicPortfolioView>>, RecordPublicPortfolioViewMutationVariables> = (props) => {
+          const {slug} = props ?? {};
+
+          return  recordPublicPortfolioView(slug,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RecordPublicPortfolioViewMutationResult = NonNullable<Awaited<ReturnType<typeof recordPublicPortfolioView>>>
+
+    export type RecordPublicPortfolioViewMutationError = ErrorType<void>
+    export type RecordPublicPortfolioViewMutationVariables = {slug: string}
+
+    /**
+ * @summary Record a public portfolio page view
+ */
+export const useRecordPublicPortfolioView = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof recordPublicPortfolioView>>, TError,RecordPublicPortfolioViewMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof recordPublicPortfolioView>>,
+        TError,
+        RecordPublicPortfolioViewMutationVariables,
+        TContext
+      > => {
+      return useMutation(getRecordPublicPortfolioViewMutationOptions(options));
+    }
 
 export const getGetAdminSessionUrl = () => {
 
@@ -1008,6 +1161,83 @@ export const useAdminLogout = <TError = ErrorType<unknown>,
       return useMutation(getAdminLogoutMutationOptions(options));
     }
 
+export const getGetAdminStatsUrl = () => {
+
+
+
+
+  return `/api/admin/stats`
+}
+
+/**
+ * @summary Get admin dashboard statistics
+ */
+export const getAdminStats = async ( options?: Parameters<typeof customFetch>[1]): Promise<AdminStatsResponse> => {
+
+  return customFetch<AdminStatsResponse>(getGetAdminStatsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetAdminStatsQueryKey = () => {
+    return [
+    `/api/admin/stats`
+    ] as const;
+    }
+
+
+export const getGetAdminStatsQueryOptions = <TData = Awaited<ReturnType<typeof getAdminStats>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAdminStats>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetAdminStatsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getAdminStats>>> = ({ signal }) => getAdminStats({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getAdminStats>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetAdminStatsQueryResult = NonNullable<Awaited<ReturnType<typeof getAdminStats>>>
+export type GetAdminStatsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Get admin dashboard statistics
+ */
+
+export function useGetAdminStats<TData = Awaited<ReturnType<typeof getAdminStats>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAdminStats>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetAdminStatsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
 export const getParseResumeUrl = () => {
 
 
@@ -1020,27 +1250,15 @@ export const getParseResumeUrl = () => {
  * @summary Extract portfolio data from a resume
  */
 export const parseResume = async (resumeParseInput: ResumeParseInput, options?: Parameters<typeof customFetch>[1]): Promise<ResumeExtraction> => {
+    const formData = new FormData();
+formData.append(`file`, resumeParseInput.file);
 
-    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
-    if (!h) return {};
-    if (h instanceof Headers) return Object.fromEntries(h.entries());
-    if (Symbol.iterator in h) {
-      return Object.fromEntries(
-        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
-      );
-    }
-    const headers: Record<string, string | readonly string[]> = {};
-    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
-      if (value !== undefined) headers[name] = value;
-    }
-    return headers;
-  };
-return customFetch<ResumeExtraction>(getParseResumeUrl(),
+  return customFetch<ResumeExtraction>(getParseResumeUrl(),
   {
     ...options,
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
-    body: JSON.stringify(resumeParseInput)
+    method: 'POST'
+    ,
+    body: formData
   }
 );}
 

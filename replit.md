@@ -9,7 +9,7 @@ Folio turns a resume into a polished, editable, and shareable portfolio website.
 - `pnpm run build` — typecheck + build all packages
 - `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks and Zod schemas from the OpenAPI spec
 - `pnpm --filter @workspace/db run push` — push DB schema changes (dev only)
-- Required env: `DATABASE_URL` — Postgres connection string
+- Required env: `DATABASE_URL` — Postgres connection string (or set `DATABASE_PROVIDER=mongo` and `MONGODB_URI` for MongoDB)
 
 ## Stack
 
@@ -44,6 +44,7 @@ Folio turns a resume into a polished, editable, and shareable portfolio website.
 - Free and premium template catalog
 - Dashboard for content, templates, appearance, domain, analytics, billing, and settings
 - Published public portfolio pages with view counting
+- Secure admin entry at `/admin` with server-side password verification and a signed HttpOnly cookie
 
 ## User preferences
 

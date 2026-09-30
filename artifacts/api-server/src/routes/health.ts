@@ -3,9 +3,11 @@ import { HealthCheckResponse } from "@workspace/api-zod";
 
 const router: IRouter = Router();
 
-router.get("/healthz", (_req, res) => {
-  const data = HealthCheckResponse.parse({ status: "ok" });
-  res.json(data);
+router.get(["/health", "/healthz"], (_req, res) => {
+  res.json({
+    status: "ok",
+    geminiConfigured: Boolean(process.env.GEMINI_API_KEY)
+  });
 });
 
 export default router;

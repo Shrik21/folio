@@ -7,8 +7,5 @@
  */
 
 export interface ResumeParseInput {
-  fileName: string;
-  mimeType: string;
-  /** @maximum 10485760 */
-  fileSize: number;
+  file: Blob;
 }

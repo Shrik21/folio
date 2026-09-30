@@ -18,6 +18,7 @@ Folio turns the resume someone already has into a considered, shareable portfoli
 - Public portfolio route at `/p/:slug`
 - Basic view counting for published portfolios
 - Responsive dashboard shell for portfolio, content, template, appearance, domain, analytics, billing, and settings surfaces
+- Server-backed admin sign-in at `/admin` with an HttpOnly signed session cookie
 - Typed OpenAPI contract, generated React Query hooks, generated Zod validation, and a PostgreSQL schema
 
 ## Architecture
@@ -46,6 +47,8 @@ The application uses one shared portfolio record and a template catalog. Publish
 - Replit-managed workflow routing
 
 Authentication, object storage, AI provider calls, payments, custom domains, and privacy-safe analytics are designed as server-side service boundaries for the next product phases. No secrets are committed to the repository.
+
+The current admin username is `Admin`. The password is read only from the `ADMIN_PASSWORD` Replit Secret; it is never hardcoded into the client or source tree.
 
 ## Local development
 
@@ -101,3 +104,4 @@ Do not hand-edit generated files under `lib/api-client-react/src/generated` or `
 - Server handlers validate request bodies, path parameters, and response payloads.
 - Frontend checks are not used as the premium or publishing security boundary.
 - Public browser code cannot be made impossible to inspect; secrets and business rules remain server-side.
+"# folio" 
