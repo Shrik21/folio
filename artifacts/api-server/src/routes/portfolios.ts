@@ -380,7 +380,10 @@ router.post("/resume/parse", upload.single("file"), async (req, res): Promise<vo
       try {
         result = await structureWithGemini(text);
       } catch (err) {
-        console.error("Gemini structuring failed", err);
+        const reason = err instanceof Error && /^Gemini API returned \d{3} \(model: [\w.-]+\)$/.test(err.message)
+          ? err.message
+          : err instanceof Error ? err.name : "UnknownError";
+        console.error("Gemini structuring failed", reason);
         result = structureLocally(text);
       }
     } else {
