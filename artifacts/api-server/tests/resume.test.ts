@@ -52,9 +52,12 @@ test("Gemini import accepts omitted generated IDs and fenced JSON", async () => 
   process.env.GEMINI_API_KEY = "test-only-not-a-real-key";
   delete process.env.AI_MODEL;
   try {
+    let attempts = 0;
     globalThis.fetch = async (_url, init) => {
       const request = JSON.parse(init?.body as string);
       assert.equal(request.model, "gemini-3.1-flash-lite");
+      // The first transient provider error should not trigger a basic import.
+      if (++attempts === 1) return new Response("unavailable", { status: 503 });
       return new Response(JSON.stringify({ choices: [{ message: { content: "```json\n" + JSON.stringify({
         personalInfo: { name: "Alex Example" },
         experience: [{ role: "Software Engineer", company: "Example Labs" }],
@@ -64,6 +67,7 @@ test("Gemini import accepts omitted generated IDs and fenced JSON", async () => 
       }) + "\n```" } }] }), { status: 200 });
     };
     const { content } = await structureWithGemini(resume);
+    assert.equal(attempts, 2);
     assert.match(content.experience[0].id, /^exp-/);
     assert.match(content.education[0].id, /^edu-/);
     assert.match(content.projects[0].id, /^proj-/);

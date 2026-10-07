@@ -132,7 +132,7 @@ export async function structureWithGemini(text: string): Promise<{ content: Port
   const timeout = setTimeout(() => controller.abort(), 60_000);
 
   try {
-    const response = await fetch("https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", {
+    const request: RequestInit = {
       method: "POST",
       headers: {
         "Authorization": `Bearer ${apiKey}`,
@@ -200,7 +200,17 @@ export async function structureWithGemini(text: string): Promise<{ content: Port
           }
         ]
       })
-    });
+    };
+    let response: Response | undefined;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      response = await fetch("https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", request);
+      if (![429, 500, 502, 503, 504].includes(response.status) || attempt === 2) break;
+      // One deadline bounds the whole operation, including transient retries.
+      await response.body?.cancel();
+      await new Promise<void>(resolve => setTimeout(resolve, 500 * (attempt + 1)));
+      controller.signal.throwIfAborted();
+    }
+    if (!response) throw new Error("Gemini returned empty response.");
 
     if (!response.ok) {
       // Status is enough for operational diagnosis; never log provider payloads

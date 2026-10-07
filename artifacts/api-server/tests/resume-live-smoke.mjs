@@ -1,9 +1,12 @@
 // Read-only smoke test: sends a fictional PDF to the parser, never saves a portfolio.
 // Usage: node artifacts/api-server/tests/resume-live-smoke.mjs https://api.example.com
 import assert from "node:assert/strict";
+import { mkdtemp, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 
 const base = process.argv[2];
-if (!base || !/^https?:\/\//.test(base)) throw new Error("Supply an API origin.");
+if (!base || (base !== "--fixture" && !/^https?:\/\//.test(base))) throw new Error("Supply an API origin or --fixture.");
 const lines = [
   "Alex Example", "Software Engineer", "alex@example.com",
   "Professional Summary", "Builds accessible applications.",
@@ -32,10 +35,20 @@ const xref = Buffer.byteLength(pdf);
 pdf += `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n`;
 pdf += offsets.slice(1).map(offset => `${String(offset).padStart(10, "0")} 00000 n \n`).join("");
 pdf += `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF`;
+if (base === "--fixture") {
+  const directory = await mkdtemp(join(tmpdir(), "folio-resume-test-"));
+  const path = join(directory, "fictional-resume.pdf");
+  await writeFile(path, pdf);
+  console.log(path);
+  process.exit(0);
+}
 const body = new FormData();
 body.append("file", new Blob([Buffer.from(pdf)], { type: "application/pdf" }), "fictional-resume.pdf");
 const response = await fetch(`${base.replace(/\/$/, "")}/api/resume/parse`, {
-  method: "POST", body, signal: AbortSignal.timeout(120_000),
+  method: "POST", body, headers: {
+    Origin: "https://folio-seven-delta.vercel.app",
+    ...(process.env.FOLIO_TEST_COOKIE ? { Cookie: process.env.FOLIO_TEST_COOKIE } : {}),
+  }, signal: AbortSignal.timeout(120_000),
 });
 assert.equal(response.status, 200, `Parser returned ${response.status}`);
 const result = await response.json();
