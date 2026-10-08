@@ -1,8 +1,8 @@
 import { drizzle } from "drizzle-orm/node-postgres";
 import pg from "pg";
 import * as schema from "./schema";
-export { isMongoDatabase, mongoStore } from "./mongo";
-export type { MongoPortfolio, MongoUser } from "./mongo";
+export { isMongoDatabase, mongoStore, mongoTemplateStore } from "./mongo";
+export type { MongoPortfolio, MongoTemplateDefinition, MongoUser } from "./mongo";
 
 const { Pool } = pg;
 const usingMongo = process.env.DATABASE_PROVIDER?.toLowerCase() === "mongo";

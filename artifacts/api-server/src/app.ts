@@ -35,7 +35,9 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 app.use("/api", router);
-const errorHandler: ErrorRequestHandler = (_error, _req, res, _next) => {
+const errorHandler: ErrorRequestHandler = (error, req, res, _next) => {
+  // Log the real cause server-side; the client still gets a generic message.
+  (req.log ?? logger).error({ err: error }, "Unhandled request error");
   res.status(503).json({ message: "The service is temporarily unavailable. Please try again." });
 };
 app.use(errorHandler);

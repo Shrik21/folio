@@ -19,3 +19,4 @@
 
 export * from "./portfolios";
 export * from "./auth";
+export * from "./templates";

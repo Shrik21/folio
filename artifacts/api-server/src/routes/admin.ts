@@ -9,6 +9,7 @@ import {
 import { db, isMongoDatabase, mongoStore, usersTable, portfoliosTable } from "@workspace/db";
 import { count, eq, sum, desc } from "drizzle-orm";
 import { authConfig, sameOrigin } from "../lib/auth";
+import { verifyDelegatedAdmin } from "../lib/delegated-admin";
 
 const router: IRouter = Router();
 const ADMIN_USERNAME = process.env.ADMIN_USERNAME;
@@ -46,8 +47,12 @@ export function isAdmin(req: Request) {
   const hasCredentials = Boolean(process.env.ADMIN_PASSWORD) || devEnabled;
   return Boolean(authConfig.sessionSecret && hasCredentials && session && typeof session === "object" && session.role === "admin" && Number.isFinite(session.expiresAt) && session.expiresAt > Date.now());
 }
-export const requireAdmin: RequestHandler = (req, res, next) => {
+export const requireAdmin: RequestHandler = async (req, res, next) => {
   if (isAdmin(req)) return next();
+  if (authConfig.sessionSecret && await verifyDelegatedAdmin(
+    req.signedCookies?.[ADMIN_COOKIE], req.get("cookie")?.split(";").map(value => value.trim())
+      .find(value => value.startsWith(`${ADMIN_COOKIE}=`)), process.env.ADMIN_AUTH_URL,
+  )) return next();
   res.status(401).json({ message: "Admin authentication required" });
 };
 
@@ -145,7 +150,9 @@ router.get("/admin/stats", requireAdmin, async (req, res) => {
     });
   } catch (error) {
     console.error("Admin stats error:", error);
-    return res.status(500).json({ message: "Failed to fetch stats" });
+    return res.status(503).json({
+      message: "Stats need the database, and it can't be reached right now. If you use MongoDB Atlas, add this computer's IP address under Network Access, then retry.",
+    });
   }
 });
 

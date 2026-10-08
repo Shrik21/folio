@@ -26,6 +26,15 @@ export type MongoUser = {
   createdAt: Date;
 };
 
+export type MongoTemplateDefinition = {
+  id: string;
+  /** Validated by the API before it is stored; null when a built-in template is only hidden. */
+  definition: unknown;
+  hidden: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
 type OAuthState = {
   stateHash: string;
   browserHash: string;
@@ -44,7 +53,11 @@ let clientPromise: Promise<MongoClient> | undefined;
 
 async function database(): Promise<Db> {
   if (!uri()) throw new Error("MONGODB_URI must be set when DATABASE_PROVIDER=mongo.");
-  clientPromise ??= new MongoClient(uri()).connect();
+  // Fail fast (8s) when the database is unreachable, and forget a failed connection so the next request retries (e.g. after the Atlas IP allowlist is fixed).
+  clientPromise ??= new MongoClient(uri(), { serverSelectionTimeoutMS: 8000 }).connect().catch((error: unknown) => {
+    clientPromise = undefined;
+    throw error;
+  });
   return (await clientPromise).db(dbName());
 }
 
@@ -54,7 +67,9 @@ async function collections() {
   const sessions = db.collection<Session>("auth_sessions");
   const states = db.collection<OAuthState>("oauth_states");
   const portfolios = db.collection<MongoPortfolio>("portfolios");
+  const templates = db.collection<MongoTemplateDefinition>("template_definitions");
   await Promise.all([
+    templates.createIndex({ id: 1 }, { unique: true }),
     users.createIndex({ provider: 1, providerUserId: 1 }, { unique: true }),
     sessions.createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 }),
     states.createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 }),
@@ -62,7 +77,7 @@ async function collections() {
     portfolios.createIndex({ ownerId: 1, updatedAt: -1 }),
     portfolios.createIndex({ status: 1, slug: 1 }),
   ]);
-  return { users, sessions, states, portfolios };
+  return { users, sessions, states, portfolios, templates };
 }
 
 export const isMongoDatabase = () => process.env.DATABASE_PROVIDER?.toLowerCase() === "mongo";
@@ -158,6 +173,33 @@ export const mongoStore = {
       portfolios.find({}, { projection: { id: 1, slug: 1, ownerId: 1, status: 1, views: 1, updatedAt: 1 }, sort: { updatedAt: -1 }, limit: 10 }).toArray(),
     ]);
     return { users: { total: userTotal, recent: recentUsers }, portfolios: { total: portfolioTotal, published, drafts, totalViews: views?.total ?? 0, recent: recentPortfolios } };
+  },
+};
+
+export const mongoTemplateStore = {
+  async list() {
+    const { templates } = await collections();
+    return templates.find({}, { projection: { _id: 0 }, sort: { createdAt: 1 } }).toArray();
+  },
+  async upsert(id: string, update: { definition?: unknown; hidden?: boolean }) {
+    const { templates } = await collections();
+    const now = new Date();
+    return templates.findOneAndUpdate(
+      { id },
+      { $set: { ...update, updatedAt: now }, $setOnInsert: { id, createdAt: now, ...("definition" in update ? {} : { definition: null }), ...("hidden" in update ? {} : { hidden: false }) } },
+      { upsert: true, returnDocument: "after", projection: { _id: 0 } },
+    );
+  },
+  async remove(id: string) {
+    const { templates } = await collections();
+    return (await templates.deleteOne({ id })).deletedCount > 0;
+  },
+  async usage() {
+    const { portfolios } = await collections();
+    const rows = await portfolios.aggregate<{ _id: string; total: number; published: number }>([
+      { $group: { _id: "$templateId", total: { $sum: 1 }, published: { $sum: { $cond: [{ $eq: ["$status", "published"] }, 1, 0] } } } },
+    ]).toArray();
+    return rows.map((row) => ({ templateId: row._id, total: row.total, published: row.published }));
   },
 };
 

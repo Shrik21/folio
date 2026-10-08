@@ -23,7 +23,8 @@ import {
 } from "@workspace/api-zod";
 import { db, isMongoDatabase, mongoStore, portfoliosTable } from "@workspace/db";
 import type { MongoPortfolio } from "@workspace/db";
-import { getTemplate, portfolioTemplates } from "../lib/portfolio-catalog";
+import { z } from "zod";
+import { isSelectableTemplate, listAllTemplates, resolveTemplate, TEMPLATE_GROUPS, TemplateThemeDefinition } from "../lib/template-registry";
 import { requireAuthentication, sameOrigin } from "../lib/auth";
 import { isAdmin } from "./admin";
 import { ownerScope, publicationError } from "../lib/portfolio-access";
@@ -115,8 +116,20 @@ const findCurrent = async (ownerId: string) => {
   return rows[0];
 };
 
-router.get("/templates", (_req, res) => {
-  res.json(ListTemplatesResponse.parse(portfolioTemplates));
+// The generated schema strips unknown keys, so extend it with what uploaded templates carry.
+const TemplatesResponse = z.array(
+  ListTemplatesResponse.element.extend({
+    groups: z.array(z.enum(TEMPLATE_GROUPS)).optional(),
+    theme: TemplateThemeDefinition.optional(),
+    source: z.enum(["built-in", "custom", "modified"]),
+    hidden: z.boolean(),
+  }),
+);
+
+// Hidden templates are included (flagged) so portfolios that already use one keep their look;
+// pickers and the gallery leave them out, and the API refuses them for new choices.
+router.get("/templates", async (_req, res) => {
+  res.json(TemplatesResponse.parse(await listAllTemplates()));
 });
 
 router.get("/portfolios", async (_req, res): Promise<void> => {
@@ -132,7 +145,7 @@ router.post("/portfolios", async (req, res): Promise<void> => {
     return;
   }
   const slug = await makeSlug(parsed.data.content.personalInfo.name);
-  if (!getTemplate(parsed.data.templateId)) { res.status(400).json({ message: "Choose an available portfolio design." }); return; }
+  if (!(await isSelectableTemplate(parsed.data.templateId))) { res.status(400).json({ message: "Choose an available portfolio design." }); return; }
   if (isMongoDatabase()) {
     const created = await mongoStore.createPortfolio({
       ownerId: res.locals.ownerId, slug, profession: parsed.data.profession, purpose: parsed.data.purpose,
@@ -191,10 +204,12 @@ router.patch("/portfolios/:id", async (req, res): Promise<void> => {
     const existing = await mongoStore.findById(res.locals.ownerId, Number(params.data.id));
     if (!existing) { res.status(404).json({ error: "That portfolio could not be found." }); return; }
     const nextTemplateId = parsed.data.templateId ?? existing.templateId;
-    if (!getTemplate(nextTemplateId)) { res.status(400).json({ message: "Choose an available portfolio design." }); return; }
-    if (existing.status === "published") {
-      const blocked = publicationError(nextTemplateId);
-      if (blocked) { res.status(blocked.status).json({ message: blocked.message }); return; }
+    if (nextTemplateId !== existing.templateId) {
+      if (!(await isSelectableTemplate(nextTemplateId))) { res.status(400).json({ message: "Choose an available portfolio design." }); return; }
+      if (existing.status === "published") {
+        const blocked = publicationError(nextTemplateId, await resolveTemplate(nextTemplateId));
+        if (blocked) { res.status(blocked.status).json({ message: blocked.message }); return; }
+      }
     }
     const updated = await mongoStore.updatePortfolio(res.locals.ownerId, existing.id, {
       profession: parsed.data.profession ?? existing.profession,
@@ -212,10 +227,12 @@ router.patch("/portfolios/:id", async (req, res): Promise<void> => {
     return;
   }
   const nextTemplateId = parsed.data.templateId ?? existing.templateId;
-  if (!getTemplate(nextTemplateId)) { res.status(400).json({ message: "Choose an available portfolio design." }); return; }
-  if (existing.status === "published") {
-    const blocked = publicationError(nextTemplateId);
-    if (blocked) { res.status(blocked.status).json({ message: blocked.message }); return; }
+  if (nextTemplateId !== existing.templateId) {
+    if (!(await isSelectableTemplate(nextTemplateId))) { res.status(400).json({ message: "Choose an available portfolio design." }); return; }
+    if (existing.status === "published") {
+      const blocked = publicationError(nextTemplateId, await resolveTemplate(nextTemplateId));
+      if (blocked) { res.status(blocked.status).json({ message: blocked.message }); return; }
+    }
   }
   const [updated] = await db
     .update(portfoliosTable)
@@ -240,7 +257,7 @@ router.post("/portfolios/:id/publish", async (req, res): Promise<void> => {
   if (isMongoDatabase()) {
     const existing = await mongoStore.findById(res.locals.ownerId, Number(params.data.id));
     if (!existing) { res.status(404).json({ error: "That portfolio could not be found." }); return; }
-    const blocked = publicationError(existing.templateId);
+    const blocked = publicationError(existing.templateId, await resolveTemplate(existing.templateId));
     if (blocked) { res.status(blocked.status).json({ message: blocked.message }); return; }
     const updated = await mongoStore.updatePortfolio(res.locals.ownerId, existing.id, { status: "published", publishedAt: new Date() });
     res.json(PublishPortfolioResponse.parse(toResponse(updated!)));
@@ -251,7 +268,7 @@ router.post("/portfolios/:id/publish", async (req, res): Promise<void> => {
     res.status(404).json({ error: "That portfolio could not be found." });
     return;
   }
-  const blocked = publicationError(existing.templateId);
+  const blocked = publicationError(existing.templateId, await resolveTemplate(existing.templateId));
   if (blocked) { res.status(blocked.status).json({ message: blocked.message }); return; }
   const [updated] = await db
     .update(portfoliosTable)
