@@ -123,6 +123,9 @@ const TemplatesResponse = z.array(
     theme: TemplateThemeDefinition.optional(),
     source: z.enum(["built-in", "custom", "modified"]),
     hidden: z.boolean(),
+    kind: z.enum(["layout", "bundle"]),
+    bundleVersion: z.number().optional(),
+    bundle: z.object({ entry: z.string(), files: z.number(), bytes: z.number() }).optional(),
   }),
 );
 

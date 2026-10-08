@@ -3,3 +3,4 @@ import "./auth.test";
 import "./admin.test";
 import "./resume.test";
 import "./templates.test";
+import "./template-bundle.test";

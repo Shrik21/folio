@@ -35,6 +35,15 @@ export type MongoTemplateDefinition = {
   updatedAt: Date;
 };
 
+export type MongoTemplateBundle = {
+  id: string;
+  version: number;
+  /** The uploaded ZIP, base64-encoded. */
+  data: string;
+  bytes: number;
+  updatedAt: Date;
+};
+
 type OAuthState = {
   stateHash: string;
   browserHash: string;
@@ -68,8 +77,10 @@ async function collections() {
   const states = db.collection<OAuthState>("oauth_states");
   const portfolios = db.collection<MongoPortfolio>("portfolios");
   const templates = db.collection<MongoTemplateDefinition>("template_definitions");
+  const bundles = db.collection<MongoTemplateBundle>("template_bundles");
   await Promise.all([
     templates.createIndex({ id: 1 }, { unique: true }),
+    bundles.createIndex({ id: 1 }, { unique: true }),
     users.createIndex({ provider: 1, providerUserId: 1 }, { unique: true }),
     sessions.createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 }),
     states.createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 }),
@@ -77,7 +88,7 @@ async function collections() {
     portfolios.createIndex({ ownerId: 1, updatedAt: -1 }),
     portfolios.createIndex({ status: 1, slug: 1 }),
   ]);
-  return { users, sessions, states, portfolios, templates };
+  return { users, sessions, states, portfolios, templates, bundles };
 }
 
 export const isMongoDatabase = () => process.env.DATABASE_PROVIDER?.toLowerCase() === "mongo";
@@ -193,6 +204,18 @@ export const mongoTemplateStore = {
   async remove(id: string) {
     const { templates } = await collections();
     return (await templates.deleteOne({ id })).deletedCount > 0;
+  },
+  async getBundle(id: string) {
+    const { bundles } = await collections();
+    return bundles.findOne({ id }, { projection: { _id: 0 } });
+  },
+  async putBundle(id: string, version: number, data: string, bytes: number) {
+    const { bundles } = await collections();
+    await bundles.updateOne({ id }, { $set: { id, version, data, bytes, updatedAt: new Date() } }, { upsert: true });
+  },
+  async removeBundle(id: string) {
+    const { bundles } = await collections();
+    await bundles.deleteOne({ id });
   },
   async usage() {
     const { portfolios } = await collections();

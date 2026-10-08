@@ -1,8 +1,10 @@
 import { z } from "zod";
 import { count, eq, sql } from "drizzle-orm";
-import { db, isMongoDatabase, mongoTemplateStore, portfoliosTable, templateDefinitionsTable } from "@workspace/db";
+import { db, isMongoDatabase, mongoTemplateStore, portfoliosTable, templateBundlesTable, templateDefinitionsTable } from "@workspace/db";
 import { getTemplate as getBuiltInTemplate, portfolioTemplates, type PortfolioTemplate } from "./portfolio-catalog";
 import { logger } from "./logger";
+import { TEMPLATE_CATEGORIES, TEMPLATE_FONTS, TEMPLATE_GROUPS, TEMPLATE_LAYOUTS, THEME_COLOR_KEYS } from "./template-constants";
+import { StoredBundleDefinition, parseBundleZip, type ParsedBundle, type StoredBundleDefinitionValue } from "./template-bundle";
 
 /*
  * Templates = the built-in catalog + what admins upload.
@@ -12,22 +14,14 @@ import { logger } from "./logger";
  * code or raw CSS. Colours, fonts and layouts are checked against strict
  * lists here, and the frontend applies them through the same theme system the
  * built-in templates use.
+ *
+ * An admin can also upload a ZIP of HTML, CSS and JavaScript (an "HTML template",
+ * see template-bundle.ts and template-render.ts). Its definition is stored in
+ * the same record as the others, and the ZIP itself in a separate store so the
+ * template list stays small.
  */
 
-export const TEMPLATE_LAYOUTS = [
-  "clean", "developer", "bento", "sidebar", "editorial", "minimal",
-  "split", "gallery", "timeline", "academic", "creative", "executive",
-] as const;
-export const TEMPLATE_FONTS = ["inter", "bricolage", "playfair", "garamond", "grotesk", "mono", "syne", "outfit"] as const;
-export const TEMPLATE_GROUPS = ["technical", "non-technical"] as const;
-export const TEMPLATE_CATEGORIES = [
-  "Universal", "Software Engineering", "Frontend & Mobile", "Data & AI", "Cloud & Security",
-  "Design & Creative", "Writing & Content", "Marketing & Sales", "Business & Consulting",
-  "Education", "Healthcare", "Law & Public Service",
-] as const;
-export const THEME_COLOR_KEYS = [
-  "bg", "surface", "surfaceAlt", "text", "muted", "border", "accent", "accentText", "onAccent", "highlight", "ink", "onInk",
-] as const;
+export { TEMPLATE_CATEGORIES, TEMPLATE_FONTS, TEMPLATE_GROUPS, TEMPLATE_LAYOUTS, THEME_COLOR_KEYS } from "./template-constants";
 
 const color = z
   .string()
@@ -77,6 +71,11 @@ export type TemplateDefinitionValue = z.output<typeof TemplateDefinition>;
 export type TemplateSource = "built-in" | "custom" | "modified";
 
 export type ResolvedTemplate = PortfolioTemplate & {
+  /** "layout" templates use one of the built-in layouts; "bundle" templates are uploaded HTML. */
+  kind: "layout" | "bundle";
+  bundleVersion?: number;
+  /** Size of an HTML template's files. */
+  bundle?: { entry: string; files: number; bytes: number };
   groups?: (typeof TEMPLATE_GROUPS)[number][];
   /** Present only for uploaded designs; built-in looks live in the frontend catalog. */
   theme?: z.output<typeof TemplateThemeDefinition>;
@@ -86,7 +85,10 @@ export type ResolvedTemplate = PortfolioTemplate & {
 };
 
 type StoredRecord = { id: string; definition: unknown; hidden: boolean; createdAt: Date; updatedAt: Date };
-type ValidRecord = Omit<StoredRecord, "definition"> & { definition: TemplateDefinitionValue | null };
+type ValidRecord = Omit<StoredRecord, "definition"> & { definition: TemplateDefinitionValue | StoredBundleDefinitionValue | null };
+
+const isBundleDefinition = (definition: ValidRecord["definition"]): definition is StoredBundleDefinitionValue =>
+  Boolean(definition && "kind" in definition && definition.kind === "bundle");
 
 /** Turns zod issues into short messages an admin can act on. */
 export function describeIssues(error: z.ZodError) {
@@ -101,7 +103,7 @@ const store = {
     if (isMongoDatabase()) return (await mongoTemplateStore.list()) as StoredRecord[];
     return db.select().from(templateDefinitionsTable);
   },
-  async upsert(id: string, update: { definition?: TemplateDefinitionValue | null; hidden?: boolean }) {
+  async upsert(id: string, update: { definition?: TemplateDefinitionValue | StoredBundleDefinitionValue | null; hidden?: boolean }) {
     if (isMongoDatabase()) {
       await mongoTemplateStore.upsert(id, update);
       return;
@@ -115,6 +117,23 @@ const store = {
     if (isMongoDatabase()) return mongoTemplateStore.remove(id);
     const removed = await db.delete(templateDefinitionsTable).where(eq(templateDefinitionsTable.id, id)).returning();
     return removed.length > 0;
+  },
+  async getBundle(id: string): Promise<{ version: number; data: string } | undefined> {
+    if (isMongoDatabase()) return (await mongoTemplateStore.getBundle(id)) ?? undefined;
+    const [row] = await db.select().from(templateBundlesTable).where(eq(templateBundlesTable.id, id)).limit(1);
+    return row ? { version: row.version, data: row.data } : undefined;
+  },
+  async putBundle(id: string, version: number, zip: Buffer) {
+    const data = zip.toString("base64");
+    if (isMongoDatabase()) return mongoTemplateStore.putBundle(id, version, data, zip.length);
+    await db
+      .insert(templateBundlesTable)
+      .values({ id, version, data, bytes: zip.length })
+      .onConflictDoUpdate({ target: templateBundlesTable.id, set: { version, data, bytes: zip.length, updatedAt: new Date() } });
+  },
+  async removeBundle(id: string) {
+    if (isMongoDatabase()) return mongoTemplateStore.removeBundle(id);
+    await db.delete(templateBundlesTable).where(eq(templateBundlesTable.id, id));
   },
   async usage(): Promise<{ templateId: string; total: number; published: number }[]> {
     if (isMongoDatabase()) return mongoTemplateStore.usage();
@@ -150,6 +169,14 @@ async function readRecords(): Promise<ValidRecord[]> {
     const rows = await withTimeout(store.list(), 4000);
     const records = rows.flatMap((row): ValidRecord[] => {
       if (row.definition == null) return [{ ...row, definition: null }];
+      if (typeof row.definition === "object" && (row.definition as { kind?: unknown }).kind === "bundle") {
+        const bundle = StoredBundleDefinition.safeParse(row.definition);
+        if (!bundle.success) {
+          logger.warn({ templateId: row.id }, "Skipping an invalid stored HTML template");
+          return [];
+        }
+        return [{ ...row, definition: bundle.data }];
+      }
       const parsed = TemplateDefinition.safeParse(row.definition);
       if (!parsed.success) {
         logger.warn({ templateId: row.id, issues: describeIssues(parsed.error) }, "Skipping an invalid stored template");
@@ -169,8 +196,28 @@ export function invalidateTemplateCache() {
   cache = undefined;
 }
 
-function fromDefinition(definition: TemplateDefinitionValue, record: ValidRecord, source: TemplateSource): ResolvedTemplate {
+function fromDefinition(definition: TemplateDefinitionValue | StoredBundleDefinitionValue, record: ValidRecord, source: TemplateSource): ResolvedTemplate {
+  if ("kind" in definition) {
+    return {
+      kind: "bundle",
+      id: definition.id,
+      name: definition.name,
+      category: definition.category,
+      description: definition.description,
+      premium: definition.premium,
+      accent: definition.accent ?? "#2f6fed",
+      layout: "bundle",
+      recommendedFor: definition.recommendedFor,
+      groups: definition.groups,
+      bundleVersion: definition.bundleVersion,
+      bundle: { entry: definition.entry, files: definition.files, bytes: definition.bytes },
+      hidden: record.hidden,
+      source,
+      updatedAt: record.updatedAt.toISOString(),
+    };
+  }
   return {
+    kind: "layout",
     id: definition.id,
     name: definition.name,
     category: definition.category,
@@ -194,7 +241,7 @@ export async function listAllTemplates(): Promise<ResolvedTemplate[]> {
   const builtIns = portfolioTemplates.map((template): ResolvedTemplate => {
     const record = byId.get(template.id);
     if (record?.definition) return fromDefinition(record.definition, record, "modified");
-    return { ...template, hidden: record?.hidden ?? false, source: "built-in", updatedAt: record?.updatedAt.toISOString() };
+    return { ...template, kind: "layout", hidden: record?.hidden ?? false, source: "built-in", updatedAt: record?.updatedAt.toISOString() };
   });
   const custom = records
     .filter((record) => record.definition && !getBuiltInTemplate(record.id))
@@ -218,9 +265,54 @@ export async function isSelectableTemplate(id: string) {
 }
 
 export async function saveTemplateDefinition(definition: TemplateDefinitionValue) {
+  const wasBundle = (await resolveTemplate(definition.id))?.kind === "bundle";
   await store.upsert(definition.id, { definition });
+  // If this id used to be an HTML template, its files are no longer needed.
+  if (wasBundle) {
+    bundleCache.delete(definition.id);
+    await store.removeBundle(definition.id).catch((error) => logger.warn({ err: error, templateId: definition.id }, "Could not remove old template files"));
+  }
   invalidateTemplateCache();
   return resolveTemplate(definition.id);
+}
+
+/* ---------- HTML templates (ZIP uploads) ---------------------------------------- */
+
+const bundleCache = new Map<string, { version: number; parsed: ParsedBundle }>();
+function rememberBundle(id: string, version: number, parsed: ParsedBundle) {
+  bundleCache.delete(id);
+  bundleCache.set(id, { version, parsed });
+  while (bundleCache.size > 12) bundleCache.delete(bundleCache.keys().next().value as string);
+}
+
+/** Saves a validated ZIP: the files first, then the definition that points to them. */
+export async function saveBundleTemplate(parsed: ParsedBundle, zip: Buffer) {
+  invalidateTemplateCache();
+  const previous = (await resolveTemplate(parsed.definition.id))?.bundleVersion ?? 0;
+  const bundleVersion = Math.max(previous + 1, Math.floor(Date.now() / 1000));
+  await store.putBundle(parsed.definition.id, bundleVersion, zip);
+  await store.upsert(parsed.definition.id, { definition: { ...parsed.definition, bundleVersion } });
+  rememberBundle(parsed.definition.id, bundleVersion, parsed);
+  invalidateTemplateCache();
+  return resolveTemplate(parsed.definition.id);
+}
+
+/** The stored ZIP for an HTML template (for the admin "Download" button). */
+export async function getBundleZip(id: string) {
+  const stored = await withTimeout(store.getBundle(id), 8000);
+  return stored ? Buffer.from(stored.data, "base64") : undefined;
+}
+
+/** The parsed files of an HTML template, kept in memory per version. */
+export async function loadBundle(id: string, version: number): Promise<ParsedBundle> {
+  const cached = bundleCache.get(id);
+  if (cached && cached.version === version) return cached.parsed;
+  const stored = await withTimeout(store.getBundle(id), 8000);
+  if (!stored) throw new Error(`The files for template “${id}” are missing.`);
+  if (stored.version !== version) throw new Error(`Template “${id}” was updated. Refresh the template list and try again.`);
+  const parsed = parseBundleZip(Buffer.from(stored.data, "base64"));
+  rememberBundle(id, stored.version, parsed);
+  return parsed;
 }
 
 /** Hide or show a template. Hiding a built-in keeps its original look. */
@@ -232,7 +324,12 @@ export async function setTemplateHidden(id: string, hidden: boolean) {
 
 /** Deletes an uploaded template, or resets a built-in one to its original look and visibility. */
 export async function removeTemplateRecord(id: string) {
+  const wasBundle = (await resolveTemplate(id))?.kind === "bundle";
   const removed = await store.remove(id);
+  if (removed && wasBundle) {
+    bundleCache.delete(id);
+    await store.removeBundle(id).catch((error) => logger.warn({ err: error, templateId: id }, "Could not remove template files"));
+  }
   invalidateTemplateCache();
   return removed;
 }

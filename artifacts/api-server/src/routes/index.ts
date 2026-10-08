@@ -3,6 +3,7 @@ import healthRouter from "./health";
 import portfoliosRouter from "./portfolios";
 import adminRouter from "./admin";
 import adminTemplatesRouter from "./admin-templates";
+import templateRenderRouter from "./template-render";
 import { createAuthRouter } from "../lib/auth-router";
 import { authConfig, authStore } from "../lib/auth";
 
@@ -13,5 +14,6 @@ router.use("/auth", createAuthRouter(authConfig, authStore));
 router.use(portfoliosRouter);
 router.use(adminRouter);
 router.use(adminTemplatesRouter);
+router.use(templateRenderRouter);
 
 export default router;
